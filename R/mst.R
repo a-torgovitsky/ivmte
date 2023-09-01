@@ -244,6 +244,12 @@ utils::globalVariables("u")
 #' @param rescale boolean, set to \code{FALSE} by default. This
 #'     rescalels the MTR components to improve stability in the QCQP
 #'     optimization.
+#' @param cho.russell boolean, set to \code{FALSE} by default. Set to
+#'     \code{TRUE} if the inference procedure by Cho and Russell
+#'     (2023) for set identified parameters defined by linear programs
+#'     should be implemeneted.
+#' @param cr.epsilon scalar, a tuning parameter controling the size of
+#'     the perturbations.
 #' @param point boolean. Set to \code{TRUE} if it is believed that the
 #'     treatment effects are point identified. If set to \code{TRUE}
 #'     and IV-like formulas are passed, then a two-step GMM procedure
@@ -456,6 +462,7 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                   initgrid.x, initgrid.u, audit.x, audit.u,
                   audit.nu = 25, audit.add = 100, audit.max = 25,
                   audit.tol, direct, rescale,
+                  cho.russell = FALSE, cr.epsilon = 10e-3,
                   point, point.eyeweight = FALSE,
                   bootstraps = 0, bootstraps.m,
                   bootstraps.replace = TRUE,
@@ -732,7 +739,6 @@ ivmte <- function(data, target, late.from, late.to, late.X,
             }
         }
 
-
         ##---------------------------
         ## 2. Check format of non-numeric arguments
         ##---------------------------
@@ -887,6 +893,7 @@ ivmte <- function(data, target, late.from, late.to, late.X,
         ## Make sure the `soft' argument is only used for a direct
         ## regression.
         if (hasArg(ivlike) && !is.null(ivlike) && hasArg(soft)) {
+            print("Do you want to allow cho and russell to be applied to iv-like cases?")
             warning(gsub("\\s+", " ",
                          "If the 'ivlike' argument is passed, then the
                           estimation procedure uses a moment-matching approach
@@ -1026,6 +1033,40 @@ ivmte <- function(data, target, late.from, late.to, late.X,
         } else {
             ## if no subset input, then we construct it
             subset <- as.list(replicate(length_formula, ""))
+        }
+        ## Check if cho.russell is only used for linear programs
+        if (cho.russell) {
+            if (hasArg(soft) && soft == FALSE) {
+                stop(gsub("\\s+", " ",
+                          "'cho.russell' uses soft constraints. Either set
+                           'soft' equal to TRUE or 'cho.russell' equal to
+                           FALSE."),
+                     call. = FALSE)
+            }
+            soft <- TRUE
+            if (!is.numeric(cr.epsilon) ||
+                length(cr.epsilon) > 1 ||
+                cr.epsilon < 0) {
+                stop(gsub("\\s+", " ",
+                          "'cr.epsilon' is supposed to be a positive scalar."),
+                     call. = FALSE)
+            }
+            if (hasArg(point) && point) {
+                stop(gsub("\\s+", " ",
+                          "'cho.russell' can only be TRUE if the treatment
+                           effects are partially identified and estimated using
+                           a linear program. Either set 'point' to FALSE
+                           or set 'cho.russell' to FALSE."),
+                     call. = FALSE)
+            }
+            if (direct.switch && qp.switch) {
+                stop(gsub("\\s+", " ",
+                          "'cho.russell' can only be TRUE if the partially
+                           identified treatment effects are estimated
+                           using a linear program. Either set 'cho.russell'
+                           to FALSE or set 'direct' equal to 'l1' or 'linf'."),
+                     call. = FALSE)
+            }
         }
 
         ##---------------------------
@@ -2234,7 +2275,7 @@ ivmte <- function(data, target, late.from, late.to, late.X,
             opList$outcome <- vars_y
         }
         if (hasArg(point)) opList$point <- point
-        if (hasArg(subset) && subset != "") opList$subset <- subset
+        if (hasArg(subset)) opList$subset <- subset
         if (hasArg(propensity)) opList$propensity <- propensity
         if (hasArg(uname)) opList$uname <- uname
         if (hasArg(treat)) opList$treat <- treat
@@ -3482,8 +3523,8 @@ checkU <- function(formula, uname) {
 #'     J-statistic.
 #' @param point.redundant vector of integers indicating which
 #'     components in the S-set are redundant.
-#' @param bootstrap boolean, indicates whether the estimate is
-#'     for the bootstrap.
+#' @param bootstrap boolean, indicates whether the estimate is for the
+#'     bootstrap.
 #' @param count.moments boolean, indicate if number of linearly
 #'     independent moments should be counted.
 #' @param orig.sset list, only used for bootstraps. The list contains
@@ -3511,12 +3552,15 @@ checkU <- function(formula, uname) {
 #' @param splinesobj.equal list of spline components in the MTRs for
 #'     treated and control groups. The structure of
 #'     \code{splinesobj.equal} is the same as \code{splinesobj},
-#'     except the splines are restricted to those whose MTR cofficients
-#'     should be constrained to be equal across treatment groups.
+#'     except the splines are restricted to those whose MTR
+#'     cofficients should be constrained to be equal across treatment
+#'     groups.
 #' @param environments a list containing the environments of the MTR
 #'     formulas, the IV-like formulas, and the propensity score
 #'     formulas. If a formula is not provided, and thus no environment
 #'     can be found, then the parent.frame() is assigned by default.
+#' @param cr.perturbations vector of perturbations used in the Cho and
+#'     Russell (2023, JBES) inference method.
 #'
 #' @inheritParams ivmte
 #'
@@ -3544,6 +3588,7 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
                           initgrid.x, initgrid.u, audit.x, audit.u,
                           audit.add = 100, audit.max = 25, audit.tol,
                           audit.grid = NULL, direct, rescale = TRUE,
+                          cho.russell, cr.epsilon, cr.perturbations,
                           point = FALSE, point.eyeweight = FALSE,
                           point.center = NULL, point.redundant = NULL,
                           bootstrap = FALSE, count.moments = TRUE,
@@ -4156,6 +4201,7 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
                     "audit.add",
                     "audit.max", "audit.tol",
                     "audit.grid", "rescale",
+                    "cho.russell", "cr.epsilon", "cr.perturbations",
                     "m1.ub", "m0.ub",
                     "m1.lb", "m0.lb",
                     "mte.ub", "mte.lb", "m0.dec",

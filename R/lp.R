@@ -654,6 +654,44 @@ lpSetupBound <- function(env, g0, g1, sset, soft = FALSE,
     }
 }
 
+#' Add perturbations to the LP problem
+#'
+#' This function adds perturbations to the LP problem to carry out the
+#' inference procedure from Cho and Russell (2023, JBES).
+#'
+#' @param env the environment containing the LP model.
+#' @param perturbation vector containing perturbations. The length of
+#'     this vector should be equal to the length of the MTR
+#'     coefficients plus the number of rows in the constraint matrix
+#'     of the linear program.
+#' @param subtract equal to \code{FALSE} by default. The function adds
+#'     the perturbations to the model inputs by default. Set
+#'     \code{subtract} equal to \code{TRUE} to instead subtract the
+#'     perturbations from the model inputs.
+#' @param constraints equal to \code{FALSE} by default. This option
+#'     controls whether the RHS of the constraints are perturbed. Set
+#'     to \code{TRUE} if the perturbations should be added to the RHS
+#'     of the constraints.
+#' @return Nothing, as this modifies an environment variable to save
+#'     memory.
+lpSetupCR <- function(env, perturbation, subtract = FALSE, constraints = FALSE) {
+    sn <- env$model$sn
+    gn0 <- env$model$gn0
+    gn1 <- env$model$gn1
+    per.obj <- perturbation[1:(gn0 + gn1)]
+    per.constraint <- perturbation[(gn0 + gn1 + 1):length(perturbation)]
+    ## Generate vector containing perturbations to be added
+    tmp.obj <- c(rep(x = 0, times = 2 * sn), per.obj)
+    if (!subtract) {
+        env$model$obj <- env$model$obj + tmp.obj
+    } else {
+        env$model$obj <- env$model$obj - tmp.obj
+    }
+    if (constraints) {
+        env$model$rhs <- env$model$rhs + per.constraint
+    }
+}
+
 #' Minimizing violation of observational equivalence
 #'
 #' Given a set of IV-like estimates and the set of matrices/vectors

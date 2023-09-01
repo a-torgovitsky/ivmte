@@ -195,7 +195,8 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                   soft = FALSE,
                   solver, solver.options, solver.presolve,
                   solver.options.criterion, solver.options.bounds,
-                  rescale = TRUE,
+                  rescale = FALSE,
+                  cho.russell = FALSE, cr.epsilon = 10e-3, cr.perturbations,
                   smallreturnlist = FALSE,
                   noisy = TRUE, debug = FALSE) {
     call  <- match.call()
@@ -618,6 +619,18 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
             }
             uvec <- sort(unique(c(0, 1, initgrid.u)))
         }
+        print("CR perturbations must enter at latest here.")
+        ## TESTING --------------------------
+        ## if (cho.russell) {
+        ##     if (!hasArg(cr.perturbations)) {
+        ##         cr.perturbations <- runif(n = modelEnv$model$gn0 +
+        ##                                       modelEnv$model$gn1 +
+        ##                                       nrow(modelEnv$model$A),
+        ##                                   min = 0, max = cr.epsilon)
+        ##         print(cr.perturbations)
+        ##     }
+        ## }
+        ## END OF TEST -----------------------
         monoboundAcall <- modcall(call,
                                   newcall = genmonoboundA,
                                   keepargs = monoboundAlist,
@@ -633,6 +646,9 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
         ## Generate environment that is to be updated
         modelEnv <- new.env()
         modelEnv$mbobj <- eval(monoboundAcall)
+        print("This is the model monobound object.")
+        print(modelEnv$mbobj)
+        stop("end of test")
     }
 
     ## Setup LP problem, or linear components of QCQP problem
@@ -643,6 +659,7 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
     lpSetup(env = modelEnv, sset = sset, orig.sset = NULL,
             equal.coef0 = equal.coef0, equal.coef1 = equal.coef1,
             solver = solver, qp = qp.switch, rescale = rescale)
+
     ## Setup QCQP problem
     if (qp.switch) qpSetup(env = modelEnv, sset = sset)
     ## Prepare solver messages
@@ -953,10 +970,19 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                         smallreturnlist = smallreturnlist,
                         rescale = rescale,
                         debug = debug)
+
+        print("THese are the names of the results")
+        print(names(result))
         if (result$error == TRUE) {
+            print("FIX HERE 1")
             errMess <- NULL
             errTypes <- NULL
-            for (type in c('min', 'max')) {
+            for (type in c('min', 'max')) { ## cr loop change: include
+                                            ## min-pos, min-neg,
+                                            ## max-pos, max-neg.
+                ##
+                ## cr loop change: Notice many more string substitutions below must
+                ## also change.
                 tmpName <- paste0(type, 'status')
                 if (type == 'min') tmpType <- 'minimization'
                 if (type == 'max') tmpType <- 'maximization'
@@ -1027,6 +1053,7 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
             ## minimized after the bounds. But if there is an error
             ## with the bounds, the criterion is never estimated, so
             ## it must be done here.
+            print("FIX HERE 2")
             if ("direct" %in% names(sset[[1]]) & soft) {
                 if (!qp.switch) {
                     lpSetupCriterion(env = modelEnv, sset = sset)
@@ -1085,6 +1112,7 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
         prevbound <- c(result$min, result$max)
 
         ## Test for violations of shape constraints when obtaining the bounds
+        print("FIX HERE 3")
         monoboundAcall <- modcall(call,
                                   newcall = genmonoboundA,
                                   keepargs = monoboundAlist,
@@ -1108,6 +1136,8 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                                                      result$maxg1,
                                                  audit.tol = audit.tol,
                                                  qp = qp.switch))
+        ## cr loop change: You may need to check for violations twice
+        ## and then combine the results.
         auditObj <- eval(monoboundAcall)
         ## Combine the violation matrices
         violateMat <- NULL
@@ -1119,6 +1149,14 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
             violateMat <- rbind(violateMat, auditObj$mono$violateMat)
             auditObj$mono$violateMat <- NULL
         }
+        print(head(violateMat, n = 20))
+        print("-----------------------")
+        print("bounds bda")
+        print("-----------------------")
+        print(auditObj$bounds$bdA)
+
+        stop("end of test")
+
         ## Deal with possible violations when audit and initial grid match
         if (initgrid.nx == audit.nx &&
             initgrid.nu == audit.nu) {

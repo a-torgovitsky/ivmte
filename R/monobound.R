@@ -1036,8 +1036,15 @@ combinemonobound <- function(bdA, monoA) {
 #'     of the solver is changed, or if numerical issues result in
 #'     discrepancies between the solver's feasibility check and the
 #'     audit.
-#' @param qp boolean, set to \code{TRUE} if the direct MTR
-#'     regression via QP is used.
+#' @param qp boolean, set to \code{TRUE} if the direct MTR regression
+#'     via QP is used.
+#' @param cho.russell boolean indicating whether the constraints
+#'     should be perturbed for the Cho and Russell (2023, JBES) inference
+#'     procedure.
+#' @param cr.epsilon scalar, tuning parameter controling the magnitude
+#'     of the peturbations used for the Cho and Russell (2023, JBES)
+#'     inference method.
+#' @param cr.perturb list containing the vector of perturbations used.
 #' @return a list containing a unified constraint matrix, unified
 #'     vector of inequalities, and unified RHS vector for the
 #'     boundedness and monotonicity constraints of an LP/QCQP problem.
@@ -1050,7 +1057,8 @@ genmonoboundA <- function(pm0, pm1, support, grid_index, uvec,
                           solution.m1.min = NULL,
                           solution.m0.max = NULL,
                           solution.m1.max = NULL, audit.tol,
-                          qp) {
+                          qp,
+                          cho.russell, cr.epsilon, cr.perurbations) {
     if (!is.null(solution.m0.min) && !is.null(solution.m1.min) &&
         !is.null(solution.m0.max) && !is.null(solution.m1.max)) {
         audit <- TRUE
@@ -1127,6 +1135,9 @@ genmonoboundA <- function(pm0, pm1, support, grid_index, uvec,
                            uvec,
                            uname)
     }
+    print("This is the grid object")
+    print(gridobj)
+    stop()
     if (is.null(splines[[1]]) && is.null(splines[[2]])) {
         A0 <- design(formula = m0, data = gridobj$grid)$X
         A1 <- design(formula = m1, data = gridobj$grid)$X
