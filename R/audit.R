@@ -196,7 +196,8 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                   solver, solver.options, solver.presolve,
                   solver.options.criterion, solver.options.bounds,
                   rescale = FALSE,
-                  cho.russell = FALSE, cr.epsilon = 10e-3, cr.perturbations,
+                  cho.russell = FALSE, cr.epsilon = 10e-3,
+                  cr.inputs,
                   smallreturnlist = FALSE,
                   noisy = TRUE, debug = FALSE) {
     call  <- match.call()
@@ -621,15 +622,33 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
         }
         print("CR perturbations must enter at latest here.")
         ## TESTING --------------------------
-        ## if (cho.russell) {
-        ##     if (!hasArg(cr.perturbations)) {
-        ##         cr.perturbations <- runif(n = modelEnv$model$gn0 +
-        ##                                       modelEnv$model$gn1 +
-        ##                                       nrow(modelEnv$model$A),
-        ##                                   min = 0, max = cr.epsilon)
-        ##         print(cr.perturbations)
-        ##     }
-        ## }
+        print("THE CODE ABOVE SEEMS TO BE SELECTING INDEXES, NOT GENERATING THE ACTUAL GRID")
+        if (cho.russell) {
+            cr.env <- new.env()
+            if (!hasArg(cr.inputs)) {
+                cr.env$grid <- gengrid.alt(xsupport = support,
+                                           usupport = a_uvec,
+                                           uname = uname,
+                                           cho.russell = TRUE,
+                                           cr.epsilon = cr.epsilon,
+                                           m0.lb = m0.lb,
+                                           m0.ub = m0.ub,
+                                           m1.lb = m1.lb,
+                                           m1.ub = m1.ub,
+                                           mte.lb = mte.lb,
+                                           mte.ub = mte.ub,
+                                           m0.inc = m0.inc,
+                                           m0.dec = m0.dec,
+                                           m1.inc = m1.inc,
+                                           m1.dec = m1.dec,
+                                           mte.inc = mte.inc,
+                                           mte.dec = mte.dec)
+            } else {
+                cr.env$grid <- cr.inputs
+            }
+        } else {
+            cr.env <- NULL
+        }
         ## END OF TEST -----------------------
         monoboundAcall <- modcall(call,
                                   newcall = genmonoboundA,
@@ -642,13 +661,12 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                                                  uvec = uvec,
                                                  splinesobj = splinesobj,
                                                  monov = monov,
-                                                 qp = qp.switch))
+                                                 qp = qp.switch,
+                                                 cho.russell = cho.russell,
+                                                 cr.env = cr.env))
         ## Generate environment that is to be updated
         modelEnv <- new.env()
         modelEnv$mbobj <- eval(monoboundAcall)
-        print("This is the model monobound object.")
-        print(modelEnv$mbobj)
-        stop("end of test")
     }
 
     ## Setup LP problem, or linear components of QCQP problem
@@ -1135,7 +1153,9 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                                                  solution.m1.max =
                                                      result$maxg1,
                                                  audit.tol = audit.tol,
-                                                 qp = qp.switch))
+                                                 qp = qp.switch,
+                                                 cho.russell = cho.russell,
+                                                 cr.env = cr.env))
         ## cr loop change: You may need to check for violations twice
         ## and then combine the results.
         auditObj <- eval(monoboundAcall)
@@ -1149,13 +1169,13 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
             violateMat <- rbind(violateMat, auditObj$mono$violateMat)
             auditObj$mono$violateMat <- NULL
         }
+        print("This is the violation matrix")
         print(head(violateMat, n = 20))
         print("-----------------------")
-        print("bounds bda")
+        print("This is the bound object")
         print("-----------------------")
-        print(auditObj$bounds$bdA)
+        print(auditObj$bounds)
 
-        stop("end of test")
 
         ## Deal with possible violations when audit and initial grid match
         if (initgrid.nx == audit.nx &&
