@@ -1361,7 +1361,7 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                 if (!soft) {
                     stop(gsub("\\s+", " ",
                               "'criterion.tol' should only have length
-                               graeter than one if 'soft = TRUE'."),
+                               greater than one if 'soft = TRUE'."),
                          call. = FALSE)
                 }
                 if (is.null(names(criterion.tol))) {
@@ -2803,7 +2803,6 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                     propSE <- cbind(se = propSE, bootstraps = propN)
                     output$propensity.se <- propSE
                     output$propensity.ci  <- propensity.ci
-
                 }
                 if (direct.switch) {
                     output$audit.criterion.bootstraps <- bootCriterion

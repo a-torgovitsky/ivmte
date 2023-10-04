@@ -337,12 +337,13 @@ genboundA <- function(A0, A1, sset, gridobj, uname, m0.lb, m0.ub,
                                  -(uniqueA0 %*% solution.m0.max - m0lb))
             violateDiff <- apply(violateDiff, 1, max)
             violatePos <- violateDiff > audit.tol
-            diff <- c(diff, violateDiff[violatePos])
-            bdA$m0.lb <- matrix(uniqueA0[violatePos, ],
-                                   nrow = sum(violatePos))
-            map <- c(map, gridmap[nonDuplicateIndex[violatePos]])
-            umap <- c(umap, grid[nonDuplicateIndex[violatePos], uname])
             if (sum(violatePos) > 0) {
+                diff <- c(diff, violateDiff[violatePos])
+                bdA$m0.lb <- matrix(uniqueA0[violatePos, ],
+                                    nrow = sum(violatePos))
+                bdA$m0.lb.rhs <- m0lb[violatePos]
+                map <- c(map, gridmap[nonDuplicateIndex[violatePos]])
+                umap <- c(umap, grid[nonDuplicateIndex[violatePos], uname])
                 lbdA0seq <- seq(sum(violatePos))
             } else {
                 lbdA0seq <- NULL
@@ -375,12 +376,13 @@ genboundA <- function(A0, A1, sset, gridobj, uname, m0.lb, m0.ub,
                                  -(uniqueA1 %*% solution.m1.max - m1lb))
             violateDiff <- apply(violateDiff, 1, max)
             violatePos <- violateDiff > audit.tol
-            diff <- c(diff, violateDiff[violatePos])
-            bdA$m1.lb <- matrix(uniqueA1[violatePos, ],
-                                   nrow = sum(violatePos))
-            map <- c(map, gridmap[nonDuplicateIndex[violatePos]])
-            umap <- c(umap, grid[nonDuplicateIndex[violatePos], uname])
             if (sum(violatePos) > 0) {
+                diff <- c(diff, violateDiff[violatePos])
+                bdA$m1.lb <- matrix(uniqueA1[violatePos, ],
+                                    nrow = sum(violatePos))
+                bdA$m1.lb.rhs <- m1lb[violatePos]
+                map <- c(map, gridmap[nonDuplicateIndex[violatePos]])
+                umap <- c(umap, grid[nonDuplicateIndex[violatePos], uname])
                 lbdA1seq <- seq(sum(violatePos))
             } else {
                 lbdA1seq <- NULL
@@ -411,13 +413,14 @@ genboundA <- function(A0, A1, sset, gridobj, uname, m0.lb, m0.ub,
                         A1 %*% solution.m1.max - telb))
             violateDiff <- apply(violateDiff, 1, max)
             violatePos <- violateDiff > audit.tol
-            diff <- c(diff, violateDiff[violatePos])
-            bdA$mte.lb <- matrix(cbind(A0[violatePos, ],
-                                          A1[violatePos, ]),
-                                    nrow = sum(violatePos))
-            map <- c(map, gridmap[violatePos])
-            umap <- c(umap, grid[violatePos, uname])
             if (sum(violatePos) > 0) {
+                diff <- c(diff, violateDiff[violatePos])
+                bdA$mte.lb <- matrix(cbind(A0[violatePos, ],
+                                           A1[violatePos, ]),
+                                     nrow = sum(violatePos))
+                bdA$mte.lb.rhs <- telb[violatePos]
+                map <- c(map, gridmap[violatePos])
+                umap <- c(umap, grid[violatePos, uname])
                 lbdAteseq <- seq(sum(violatePos))
             } else {
                 lbdAteseq <- NULL
@@ -453,7 +456,8 @@ genboundA <- function(A0, A1, sset, gridobj, uname, m0.lb, m0.ub,
             if (sum(violatePos) > 0) {
                 diff <- c(diff, violateDiff[violatePos])
                 bdA$m0.ub <- matrix(uniqueA0[violatePos, ],
-                                       nrow = sum(violatePos))
+                                    nrow = sum(violatePos))
+                bdA$m0.ub.rhs <- m0ub[violatePos]
                 map <- c(map, gridmap[nonDuplicateIndex[violatePos]])
                 umap <- c(umap, grid[nonDuplicateIndex[violatePos], uname])
                 ubdA0seq <- seq(sum(violatePos))
@@ -468,7 +472,7 @@ genboundA <- function(A0, A1, sset, gridobj, uname, m0.lb, m0.ub,
         uniqueA1 <- matrix(A1[!duplicatePos, ], nrow = sum(!duplicatePos))
         nonDuplicateIndex <- seq(nrow(A1))[!duplicatePos]
         if (length(m1.ub) == 1) {
-            m1ub <- replicate(nrow(uniqueA0), m1.ub)
+            m1ub <- replicate(nrow(uniqueA1), m1.ub)
         } else {
             m1ub <- m1.ub[!duplicatePos]
         }
@@ -491,7 +495,8 @@ genboundA <- function(A0, A1, sset, gridobj, uname, m0.lb, m0.ub,
             if (sum(violatePos) > 0) {
                 diff <- c(diff, violateDiff[violatePos])
                 bdA$m1.ub <- matrix(uniqueA1[violatePos, ],
-                                       nrow = sum(violatePos))
+                                    nrow = sum(violatePos))
+                bdA$m1.ub.rhs <- m1ub[violatePos]
                 map <- c(map, gridmap[nonDuplicateIndex[violatePos]])
                 umap <- c(umap, grid[nonDuplicateIndex[violatePos], uname])
                 ubdA1seq <- seq(sum(violatePos))
@@ -526,7 +531,8 @@ genboundA <- function(A0, A1, sset, gridobj, uname, m0.lb, m0.ub,
                 diff <- c(diff, violateDiff[violatePos])
                 bdA$mte.ub <- matrix(cbind(A0[violatePos, ],
                                               A1[violatePos, ]),
-                                        nrow = sum(violatePos))
+                                     nrow = sum(violatePos))
+                bdA$mte.ub.rhs <- teub[violatePos]
                 map <- c(map, gridmap[violatePos])
                 umap <- c(umap, grid[violatePos, uname])
                 ubdAteseq <- seq(sum(violatePos))
@@ -718,7 +724,6 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
     un <- length(unique(gridobj$grid[, uname]))
     grid <- gridobj$grid
     gridmap <- gridobj$map
-    print(gridobj)
     ## Construct index for calculating first differences
     uMaxIndex <- unlist(sapply(X = unique(gridmap), FUN = function(x) {
         pos <- sort(which(gridmap == x))
@@ -929,6 +934,7 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
         map <- NULL
         umap <- NULL
     }
+    print("WHAT IS M0.TYPE AND WHY DOES IT GO UP TO 3?")
     ## Impose/check constraints for m0
     if (hasArg(m0.inc)) {
         if (is.logical(m0.inc) && m0.inc) {
@@ -990,9 +996,11 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
                 if (m0.type == 1) {
                     monoA0IncSeq <- seq(sum(violatePos))
                     monoA0DecSeq <- NULL
+                    monoA$m0.inc.rhs <- monoList$mono0z[violatePos]
                 } else if (m0.type == 2) {
                     monoA0IncSeq <- NULL
                     monoA0DecSeq <- seq(sum(violatePos))
+                    monoA$m0.dec.rhs <- monoList$mono0z[violatePos]
                 } else if (m0.type == 3) {
                     monoA0IncSeq <- seq(sum(violatePos[violatePos <= (
                         nrow(monoList$monoA0) / 2)]))
@@ -1066,9 +1074,11 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
                 if (m1.type == 1) {
                     monoA1IncSeq <- seq(sum(violatePos))
                     monoA1DecSeq <- NULL
+                    monoA$m1.inc.rhs <- monoList$mono1z[violatePos]
                 } else if (m1.type == 2) {
                     monoA1IncSeq <- NULL
                     monoA1DecSeq <- seq(sum(violatePos))
+                    monoA$m1.dec.rhs <- monoList$mono1z[violatePos]
                 } else if (m1.type == 3) {
                     monoA1IncSeq <- seq(sum(violatePos[violatePos <= (
                         nrow(monoList$monoA1) / 2)]))
@@ -1144,9 +1154,11 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
                 if (mte.type == 1) {
                     monoAteIncSeq <- seq(sum(violatePos))
                     monoAteDecSeq <- NULL
+                    monoA$mte.inc.rhs <- monoList$monotez[violatePos]
                 } else if (mte.type == 2) {
                     monoAteIncSeq <- NULL
                     monoAteDecSeq <- seq(sum(violatePos))
+                    monoA$mte.dec.rhs <- monoList$monotez[violatePos]
                 } else if (mte.type == 3) {
                     monoAteIncSeq <- seq(sum(violatePos[violatePos <= (
                         nrow(monoList$monoAte) / 2)]))
@@ -1455,8 +1467,6 @@ genmonoboundA <- function(pm0, pm1, support, grid_index, uvec,
     u0unique <- uvec[!duplicated(fullU0mat)]
     u1unique <- uvec[!duplicated(fullU1mat)]
     ## Now update U grid to only include non-redundant values
-    print("YOU CAN KEEP THIS CHECK FOR CR, BUT YOU NEED TO UPDAT YOUR FULL GRID WITH A MERGE?")
-    print("Or  should you tag the U's that are actually used?")
     uvec <- sort(unique(c(u0unique, u1unique)))
     if (length(uvec) == 0) uvec <- 0
     rm(u0mat, u1mat,

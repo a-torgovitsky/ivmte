@@ -200,6 +200,7 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                   cr.inputs,
                   smallreturnlist = FALSE,
                   noisy = TRUE, debug = FALSE) {
+    print("Isn't it ugly how you have to reference $grid every time you look into the cr.env object? You should be able to correct this.")
     call  <- match.call()
     solver <- tolower(solver)
     if (noisy == TRUE) {
@@ -231,7 +232,6 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
             cat("    Criterion constraint: Soft,", norm.str, "\n")
         }
     }
-
     ## Determine if whether IV-like moments or direct MTR regression
     ## will be used.
     qp.switch <- FALSE
@@ -462,7 +462,13 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
         audit.x <- NULL
     }
     ## Begin performing the audit
-    prevbound <- c(-Inf, Inf)
+    if (!cho.russell) {
+        prevbound <- c(-Inf, Inf)
+    } else {
+        prevbound <- matrix(c(-Inf, -Inf, Inf, Inf), nrow = 2)
+        rownames(prevbound) <- c("- pert.", "+ pert.")
+        colnames(prevbound) <- c("Min.", "Max.")
+    }
     existsolution <- FALSE
     audit_count <- 1
     ## Generate the components for the audit grid, and generate the
@@ -495,8 +501,8 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                 noX <- FALSE
                 if (is.null(audit.x)) {
                     support <- unique(data[, xvars])
-                    ## Check if support is vector or matrix; it can be a vector if
-                    ## there is only one X term
+                    ## Check if support is vector or matrix; it can be
+                    ## a vector if there is only one X term
                     if (is.null(dim(support))) {
                         support <- data.frame(support)
                         colnames(support) <- xvars
@@ -677,7 +683,6 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
     lpSetup(env = modelEnv, sset = sset, orig.sset = NULL,
             equal.coef0 = equal.coef0, equal.coef1 = equal.coef1,
             solver = solver, qp = qp.switch, rescale = rescale)
-
     ## Setup QCQP problem
     if (qp.switch) qpSetup(env = modelEnv, sset = sset)
     ## Prepare solver messages
@@ -975,162 +980,208 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                          criterion.min = minobseq$obj,
                          rescale = rescale)
         }
-        result <- bound(env = modelEnv,
-                        sset = sset,
-                        g0 = gstar0,
-                        g1 = gstar1,
-                        soft = soft,
-                        qp = qp.switch,
-                        criterion.tol = criterion.tol,
-                        solver = solver,
-                        solver.options = solver.options.bounds,
-                        noisy = noisy,
-                        smallreturnlist = smallreturnlist,
-                        rescale = rescale,
-                        debug = debug)
-
-        print("THese are the names of the results")
-        print(names(result))
-        if (result$error == TRUE) {
-            print("FIX HERE 1")
-            errMess <- NULL
-            errTypes <- NULL
-            for (type in c('min', 'max')) { ## cr loop change: include
-                                            ## min-pos, min-neg,
-                                            ## max-pos, max-neg.
-                ##
-                ## cr loop change: Notice many more string substitutions below must
-                ## also change.
-                tmpName <- paste0(type, 'status')
-                if (type == 'min') tmpType <- 'minimization'
-                if (type == 'max') tmpType <- 'maximization'
-                if (result[[tmpName]] == 0) {
-                    errMess <-
-                        paste(errMess,
-                              gsub('\\s+', ' ',
-                                   paste('The solver did not provide a
+        ## Determine whether to botain bounds once or twice, depending
+        ## on whether the Cho and Russell approach is used.
+        if (!cho.russell) {
+            tmp.res.count <- 1
+        } else {
+            tmp.res.count <- 2
+        }
+        bound.args <- list(env = modelEnv,
+                           sset = sset,
+                           g0 = gstar0,
+                           g1 = gstar1,
+                           soft = soft,
+                           qp = qp.switch,
+                           criterion.tol = criterion.tol,
+                           solver = solver,
+                           solver.options = solver.options.bounds,
+                           noisy = noisy,
+                           smallreturnlist = smallreturnlist,
+                           rescale = rescale,
+                           debug = debug)
+        for (tmp.rc in seq(tmp.res.count)) {
+            if (cho.russell) {
+                bound.args$cho.russell <- TRUE
+                bound.args$cr.env <- cr.env
+                bound.args$cr.epsilon <- cr.epsilon
+                bound.args$cr.subtract <- FALSE
+            }
+            if (tmp.rc == 1) {
+                result1 <- do.call(bound, bound.args)
+                ## result1 <- bound(env = modelEnv,
+                ##                  sset = sset,
+                ##                  g0 = gstar0,
+                ##                  g1 = gstar1,
+                ##                  soft = soft,
+                ##                  qp = qp.switch,
+                ##                  criterion.tol = criterion.tol,
+                ##                  solver = solver,
+                ##                  solver.options = solver.options.bounds,
+                ##                  noisy = noisy,
+                ##                  smallreturnlist = smallreturnlist,
+                ##                  rescale = rescale,
+                ##                  debug = debug)
+                result <- result1
+            }
+            if (tmp.rc == 2) {
+                ## Apply negative perturbations to the objective
+                bound.args$cr.subtract <- TRUE
+                result2 <- do.call(bound, bound.args)
+                result <- result2
+            }
+            ## Check for error when estimating bounds. When the Cho
+            ## and Russell approach is used, an error will only be
+            ## passed for one of the perturbations. The positive
+            ## perturbation estimates are checked first. If there is
+            ## an error, then the program stops. If not, then the
+            ## negative perturbation estimates are checked. Once
+            ## again, if an error is returned, then the program
+            ## stops. Otherwise, the program carries on to construct
+            ## the violation matrix.
+            if (result$error == TRUE) {
+                errMess <- NULL
+                errTypes <- NULL
+                for (type in c('min', 'max')) { ## cr loop change: include
+                    ## min-pos, min-neg,
+                    ## max-pos, max-neg.
+                    ##
+                    ## cr loop change: Notice many more string substitutions below must
+                    ## also change.
+                    tmpName <- paste0(type, 'status')
+                    if (type == 'min') tmpType <- 'minimization'
+                    if (type == 'max') tmpType <- 'maximization'
+                    if (result[[tmpName]] == 0) {
+                        errMess <-
+                            paste(errMess,
+                                  gsub('\\s+', ' ',
+                                       paste('The solver did not provide a
                                      solution for the', tmpType,
                                      'problem.')))
-                }
-                if (result[[tmpName]] == 2) {
-                    errMess <-
-                        paste(errMess,
-                              gsub('\\s+', ' ',
-                                   paste('The', tmpType, 'problem was proven
+                    }
+                    if (result[[tmpName]] == 2) {
+                        errMess <-
+                            paste(errMess,
+                                  gsub('\\s+', ' ',
+                                       paste('The', tmpType, 'problem was proven
                                           to be infeasible.')))
-                }
-                if (result[[tmpName]] == 3) {
-                    errMess <-
-                        paste(errMess,
-                              gsub('\\s+', ' ',
-                                   paste('The', tmpType,
-                                         'problem was proven to be
+                    }
+                    if (result[[tmpName]] == 3) {
+                        errMess <-
+                            paste(errMess,
+                                  gsub('\\s+', ' ',
+                                       paste('The', tmpType,
+                                             'problem was proven to be
                                           infeasible or unbounded.')))
-                }
-                if (result[[tmpName]] == 4) {
-                    errMess <-
-                        paste(errMess,
-                              gsub('\\s+', ' ',
-                                   paste('The', tmpType,
-                                         'problem was proven to be
+                    }
+                    if (result[[tmpName]] == 4) {
+                        errMess <-
+                            paste(errMess,
+                                  gsub('\\s+', ' ',
+                                       paste('The', tmpType,
+                                             'problem was proven to be
                                           unbounded.')))
-                }
-                if (result[[tmpName]] == 5) {
-                    errMess <-
-                        paste(errMess,
-                              gsub('\\s+', ' ',
-                                   paste('The', tmpType,
-                                         'problem resulted in
+                    }
+                    if (result[[tmpName]] == 5) {
+                        errMess <-
+                            paste(errMess,
+                                  gsub('\\s+', ' ',
+                                       paste('The', tmpType,
+                                             'problem resulted in
                                           numerical issues.')))
+                    }
+                    errTypes <- c(errTypes, result[[tmpName]])
                 }
-                errTypes <- c(errTypes, result[[tmpName]])
-            }
-            ## Include explanation
-            origErrTypes <- sort(unique(errTypes))
-            errTypes <- sort(unique(errTypes))
-            if (length(errTypes) == 2 &&
-                errTypes[1] == 2 && errTypes[2] == 3) errTypes <- 3
-            for (et in errTypes) {
-                if (et == 0) {
-                    errMess <- paste(errMess, messageAlt)
+                ## Include explanation
+                origErrTypes <- sort(unique(errTypes))
+                errTypes <- sort(unique(errTypes))
+                if (length(errTypes) == 2 &&
+                    errTypes[1] == 2 && errTypes[2] == 3) errTypes <- 3
+                for (et in errTypes) {
+                    if (et == 0) {
+                        errMess <- paste(errMess, messageAlt)
+                    }
+                    if (et == 2) {
+                        errMess <- paste(errMess, messageInf)
+                    }
+                    if (et == 3) {
+                        errMess <- paste(errMess, messageInfUnb)
+                    }
+                    if (et == 4) {
+                        errMess <- paste(errMess, messageUnb)
+                    }
+                    if (et == 5) {
+                        errMess <- paste(errMess, messageNum)
+                    }
                 }
-                if (et == 2) {
-                    errMess <- paste(errMess, messageInf)
+                ## If using the soft threshold approach, the criterion is
+                ## minimized after the bounds. But if there is an error
+                ## with the bounds, the criterion is never estimated, so
+                ## it must be done here.
+                if ("direct" %in% names(sset[[1]]) & soft) {
+                    if (!qp.switch) {
+                        lpSetupCriterion(env = modelEnv, sset = sset)
+                    } else {
+                        qpSetupCriterion(env = modelEnv)
+                    }
+                    minobseq <- criterionMin(env = modelEnv,
+                                             sset = sset,
+                                             solver = solver,
+                                             solver.options = solver.options.criterion,
+                                             rescale = rescale,
+                                             debug = debug)
+                    if (qp.switch) {
+                        minCriterion <- (minobseq$obj * modelEnv$drN + modelEnv$ssy) / drN
+                    }
                 }
-                if (et == 3) {
-                    errMess <- paste(errMess, messageInfUnb)
-                }
-                if (et == 4) {
-                    errMess <- paste(errMess, messageUnb)
-                }
-                if (et == 5) {
-                    errMess <- paste(errMess, messageNum)
-                }
-            }
-            ## If using the soft threshold approach, the criterion is
-            ## minimized after the bounds. But if there is an error
-            ## with the bounds, the criterion is never estimated, so
-            ## it must be done here.
-            print("FIX HERE 2")
-            if ("direct" %in% names(sset[[1]]) & soft) {
-                if (!qp.switch) {
-                    lpSetupCriterion(env = modelEnv, sset = sset)
-                } else {
-                    qpSetupCriterion(env = modelEnv)
-                }
-                minobseq <- criterionMin(env = modelEnv,
-                                         sset = sset,
-                                         solver = solver,
-                                         solver.options = solver.options.criterion,
-                                         rescale = rescale,
-                                         debug = debug)
+                ## Prepare output
+                if (audit_count == 1) audit_count <- 2
+                ## Clean up status codes
+                status.codes <- c(criterion = minobseq$status,
+                                  min = result$minstatus,
+                                  max = result$maxstatus)
+                result[['minstatus']] <- statusString(result[['minstatus']], solver)
+                result[['maxstatus']] <- statusString(result[['maxstatus']], solver)
+                minobseq$status <- statusString(minobseq$status, solver)
+                output <- list(error = errMess,
+                               errorTypes = origErrTypes,
+                               min = result$min,
+                               max = result$max,
+                               status.min = result$minstatus,
+                               status.max = result$maxstatus,
+                               status.codes = status.codes,
+                               runtime = c(criterion = minobseq$runtime,
+                                           min = result$minruntime,
+                                           max = result$maxruntime),
+                               audit.criterion.status = minobseq$status,
+                               audit.count = audit_count - 1,
+                               audit.grid = audit.grid,
+                               criterion = minobseq,
+                               result = result)
                 if (qp.switch) {
-                    minCriterion <- (minobseq$obj * modelEnv$drN + modelEnv$ssy) / drN
+                    output$audit.criterion <- minCriterion
+                    output$audit.criterion.raw <- minobseq$obj
+                } else {
+                    output$audit.criterion <- minobseq$obj
+                    output$audit.criterion.raw <- minobseq$obj
                 }
+                ## Note: An error will be passed only for one of the
+                ## perturbations.
+                if (cho.russell) {
+                    if (tmp.rc == 1) {
+                        output$cho.russell.perturb <- "positive"
+                    } else {
+                        output$cho.russell.perturb <- "negative"
+                    }
+                }
+                return(output)
             }
-            ## Prepare output
-            if (audit_count == 1) audit_count <- 2
-            ## Clean up status codes
-            status.codes <- c(criterion = minobseq$status,
-                              min = result$minstatus,
-                              max = result$maxstatus)
-            result[['minstatus']] <- statusString(result[['minstatus']], solver)
-            result[['maxstatus']] <- statusString(result[['maxstatus']], solver)
-            minobseq$status <- statusString(minobseq$status, solver)
-            output <- list(error = errMess,
-                           errorTypes = origErrTypes,
-                           min = result$min,
-                           max = result$max,
-                           status.min = result$minstatus,
-                           status.max = result$maxstatus,
-                           status.codes = status.codes,
-                           runtime = c(criterion = minobseq$runtime,
-                                       min = result$minruntime,
-                                       max = result$maxruntime),
-                           audit.criterion.status = minobseq$status,
-                           audit.count = audit_count - 1,
-                           audit.grid = audit.grid,
-                           criterion = minobseq,
-                           result = result)
-            if (qp.switch) {
-                output$audit.criterion <- minCriterion
-                output$audit.criterion.raw <- minobseq$obj
-            } else {
-                output$audit.criterion <- minobseq$obj
-                output$audit.criterion.raw <- minobseq$obj
-            }
-            return(output)
         }
         ## Save results
-        solVecMin <- c(result$ming0, result$ming1)
-        solVecMax <- c(result$maxg0, result$maxg1)
-        optstatus <- min(c(result$minstatus,
-                           result$maxstatus))
         if (existsolution == FALSE) existsolution <- TRUE
         prevbound <- c(result$min, result$max)
 
         ## Test for violations of shape constraints when obtaining the bounds
-        print("FIX HERE 3")
         monoboundAcall <- modcall(call,
                                   newcall = genmonoboundA,
                                   keepargs = monoboundAlist,
@@ -1169,14 +1220,115 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
             violateMat <- rbind(violateMat, auditObj$mono$violateMat)
             auditObj$mono$violateMat <- NULL
         }
-        print("This is the violation matrix")
-        print(head(violateMat, n = 20))
-        print("-----------------------")
-        print("This is the bound object")
-        print("-----------------------")
-        print(auditObj$bounds)
-
-
+        violateMat2 <- NULL
+        if (cho.russell) {
+            ## Check for violations for the POSITIVE perturbations
+            ## (the most recent set of estimates were for the negative
+            ## perturbations, so the object "result" passed into
+            ## monoboundAcall corresponds to the NEGATIVE
+            ## perturbations).
+            ##
+            ## Perform second audit
+            monoboundAcall <-
+                modcall(monoboundAcall,
+                        dropargs = c("solution.m0.min",
+                                     "solution.m1.min",
+                                     "solution.m0.max",
+                                     "solution.m1.max"),
+                        newargs = list(solution.m0.min = result1$ming0,
+                                       solution.m1.min = result1$ming1,
+                                       solution.m0.max = result1$maxg0,
+                                       solution.m1.max = result1$maxg1))
+            auditObj2 <- eval(monoboundAcall)
+            ## Obtain second violation matrix
+            if (!is.null(auditObj2$bounds)) {
+                violateMat2 <- rbind(violateMat2, auditObj2$bounds$violateMat)
+                auditObj2$bounds$violateMat <- NULL
+            }
+            if (!is.null(auditObj2$mono)) {
+                violateMat2 <- rbind(violateMat2, auditObj2$mono$violateMat)
+                auditObj2$mono$violateMat <- NULL
+            }
+        }
+        if (is.null(violateMat) && !is.null(violateMat2)) {
+            auditObj <- auditObj2
+            violateMat <- violateMat2
+        } else if (!is.null(violateMat) && !is.null(violateMat2)) {
+            ## Flag entries in the second violation matrix that exist
+            ## in the first violation matrix
+            tmp.mcheck <- merge(x = violateMat,
+                                y = violateMat2[, c("type", "grid.x", "grid.u")],
+                                by = c("type", "grid.x", "grid.u"))
+            tmp.mcheck$drop <- TRUE
+            tmp.mcheck <- tmp.mcheck[, c("type", "grid.x", "grid.u", "drop")]
+            violateMat2 <- merge(x = violateMat2,
+                                 y = tmp.mcheck,
+                                 by = c("type", "grid.x", "grid.u"),
+                                 all.x = TRUE)
+            violateMat2[is.na(violateMat2$drop), ]$drop <- FALSE
+            violateMat2 <- violateMat2[order(violateMat2$type,
+                                             violateMat2$pos), ]
+            ## Remove entries in auditObj2 matrices that exist in
+            ## auditObj matrices.
+            type.string <- c("m0.lb", "m1.lb", "mte.lb",
+                             "m0.ub", "m1.ub", "mte.ub",
+                             "m0.inc", "m0.dec",
+                             "m1.inc", "m1.dec",
+                             "mte.inc", "mte.dec")
+            for (tmp.type in seq(12)) {
+                tmp.sub <- violateMat2[violateMat2$drop == TRUE &
+                                       violateMat2$type == tmp.type, ]
+                if (nrow(tmp.sub) > 0) {
+                    tmp.string1 <- type.string[tmp.type]
+                    tmp.pos <- tmp.sub$pos
+                    if (tmp.type <= 6) {
+                        tmp.name1 <- "bounds"
+                        tmp.name2 <- "bdA"
+                        tmp.string2 <- tmp.string1
+                    } else {
+                        tmp.name1 <- "mono"
+                        tmp.name2 <- "monoA"
+                        tmp.string2 <- gsub(".inc", "", tmp.string1)
+                        tmp.string2 <- gsub(".dec", "", tmp.string2)
+                    }
+                    tmp.string.rhs <- paste0(tmp.string1, ".rhs")
+                    ## Delete the rows in the matrices and vectors currently
+                    ## stored in auditObj2 that will be appended
+                    ## to the audit grid
+                    auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string2]] <-
+                        auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string2]][-tmp.pos, ]
+                    auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]] <-
+                        auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]][-tmp.pos]
+                    tmp.remaining <- nrow(auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string2]])
+                    ## Remove duplicate violations from the violation
+                    ## matrix, and update the positions of
+                    ## non-duplciate violations in the violation
+                    ## matrix
+                    violateMat2 <- violateMat2[!(violateMat2$drop == TRUE &
+                                                 violateMat2$type == tmp.type), ]
+                    if (tmp.remaining > 0) {
+                        tmp.seq <- seq(tmp.remaining) +
+                            nrow(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string2]])
+                        violateMat2[violateMat2$type == tmp.type, "pos"] <- tmp.seq
+                    }
+                    ## Combine the matrices and vectors that will
+                    ## be added to the LP constraints
+                    if (tmp.remaining > 0) {
+                        auditObj[[tmp.name1]][[tmp.name2]][[tmp.string2]] <-
+                            rbind(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string2]],
+                                  auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string2]])
+                        auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]] <-
+                            c(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]],
+                              auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]])
+                    }
+                }
+            }
+            ## Combine violation matrices
+            violateMat2 <- violateMat2[, colnames(violateMat)]
+            violateMat2$drop <- NULL
+            violateMat <- rbind(violateMat, violateMat2)
+            violateMat <- violateMat[order(violateMat$type, violateMat$pos), ]
+        }
         ## Deal with possible violations when audit and initial grid match
         if (initgrid.nx == audit.nx &&
             initgrid.nu == audit.nu) {
@@ -1291,9 +1443,10 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                 ## If number of violations is fewer than audit.add, simply
                 ## include all points
                 if (nrow(violateMat) > audit.add) {
-                    ## If number of violations exceeds audit.add, then a
-                    ## selection rule is applied. Sort the violations by
-                    ## type and size.
+                    ## If number of violations exceeds audit.add, then
+                    ## a selection rule is applied. Sort the
+                    ## violations by type and size. Select only the
+                    ## largest violations.
                     violateMat <- violateMat[order(violateMat$type,
                                                    violateMat$grid.x,
                                                    -violateMat$diff), ]
@@ -1363,53 +1516,48 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                                            modelEnv$mbobj$monoteseq[, 1]))
                 for (i in types) {
                     ## Expand constraints for m0
+                    addIndex <- violateMat[violateMat$type == i, "pos"]
                     if (i == 1) {
-                        addIndex <- violateMat[violateMat$type == i,
-                                               "pos"]
                         addlb0seq <- seq(length(addIndex)) + tmpAdd
                         tmpAdd <- tmpAdd + length(addIndex)
                         tmpGrid <- auditObj$bounds$bdA$m0.lb
                         modelEnv$model$sense <- c(modelEnv$model$sense,
                                                rep(">=", length(addIndex)))
                         modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                             rep(m0.lb,
-                                                 length(addIndex)))
+                                                auditObj$bound$bdA$m0.lb.rhs[addIndex])
                         addm0 <- rbind(addm0, tmpGrid[addIndex, ])
                         rm(tmpGrid)
                         auditObj$bounds$bdA$m0.lb <- NULL
                     }
                     if (i == 4) {
-                        addIndex <- violateMat[violateMat$type == i,
-                                               "pos"]
                         addub0seq <- seq(length(addIndex)) + tmpAdd
                         tmpAdd <- tmpAdd + length(addIndex)
                         tmpGrid <- auditObj$bounds$bdA$m0.ub
                         modelEnv$model$sense <- c(modelEnv$model$sense,
                                                rep("<=", length(addIndex)))
                         modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                             rep(m0.ub,
-                                                 length(addIndex)))
+                                                auditObj$bound$bdA$m0.ub.rhs[addIndex])
                         addm0 <- rbind(addm0, tmpGrid[addIndex, ])
                         rm(tmpGrid)
                         auditObj$bounds$bdA$m0.ub <- NULL
                     }
                     if (i %in% c(7, 8)) {
-                        addIndex <- violateMat[violateMat$type == i,
-                                               "pos"]
                         tmpGrid <- auditObj$mono$monoA$m0
                         if (i == 7) {
                             addmono0incseq <- seq(length(addIndex)) + tmpAdd
                             tmpAdd <- tmpAdd + length(addIndex)
                             modelEnv$model$sense <- c(modelEnv$model$sense,
-                                                   rep(">=", length(addIndex)))
+                                                      rep(">=", length(addIndex)))
+                            modelEnv$model$rhs <- c(modelEnv$model$rhs,
+                                                    auditObj$mono$monoA$m0.inc.rhs[addIndex])
                         } else {
                             addmono0decseq <- seq(length(addIndex)) + tmpAdd
                             tmpAdd <- tmpAdd + length(addIndex)
                             modelEnv$model$sense <- c(modelEnv$model$sense,
-                                                   rep("<=", length(addIndex)))
+                                                      rep("<=", length(addIndex)))
+                            modelEnv$model$rhs <- c(modelEnv$model$rhs,
+                                                    auditObj$mono$monoA$m0.dec.rhs[addIndex])
                         }
-                        modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                             rep(0, length(addIndex)))
                         addm0 <- rbind(addm0, tmpGrid[addIndex, ])
                         rm(tmpGrid)
                         if (i == 8) auditObj$mono$monoA$m0 <- NULL
@@ -1427,7 +1575,6 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                             sset[[1]]$direct == "l2") {
                             addCol <- length(sset$s1$g1)
                         }
-
                     }
                     tmpMat <- cbind(matrix(0, nrow = nrow(addm0),
                                            ncol = 2 * sn),
@@ -1440,20 +1587,6 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                                         STATS = modelEnv$colNorms,
                                         FUN = '/')
                     }
-                    ## Expand additional constraints to allow for new variable
-                    ## if (qp.switch && !soft) {
-                    ##     tmpA <- Matrix::Matrix(0, nrow = nrow(tmpMat),
-                    ##                            ncol = ncol(sset$s1$g0) +
-                    ##                                ncol(sset$s1$g1))
-                    ##     colnames(tmpA) <- paste0("yhat.", seq(ncol(sset$s1$g0) +
-                    ##                                           ncol(sset$s1$g1)))
-                    ## } else if (!qp.switch &&
-                    ##            "direct" %in% names(sset[[1]]) &&
-                    ##            sset[[1]]$direct == "linf") {
-                    ##     tmpA <- 0
-                    ## } else {
-                    ##     tmpA <- NULL
-                    ## }
                     if ("direct" %in% names(sset[[1]]) &&
                         sset[[1]]$direct == "linf") {
                         tmpA <- 0
@@ -1485,53 +1618,48 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                 rm(addm0)
                 ## Expand constraints for m1
                 for (i in types) {
+                    addIndex <- violateMat[violateMat$type == i, "pos"]
                     if (i == 2) {
-                        addIndex <- violateMat[violateMat$type == i,
-                                               "pos"]
                         addlb1seq <- seq(length(addIndex)) + tmpAdd
                         tmpAdd <- tmpAdd + length(addIndex)
                         tmpGrid <- auditObj$bounds$bdA$m1.lb
                         modelEnv$model$sense <- c(modelEnv$model$sense,
-                                               rep(">=", length(addIndex)))
+                                                  rep(">=", length(addIndex)))
                         modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                             rep(m1.lb,
-                                                 length(addIndex)))
+                                                auditObj$bound$bdA$m1.lb.rhs[addIndex])
                         addm1 <- rbind(addm1, tmpGrid[addIndex, ])
                         rm(tmpGrid)
                         auditObj$bounds$bdA$m1.lb <- NULL
                     }
                     if (i == 5) {
-                        addIndex <- violateMat[violateMat$type == i,
-                                               "pos"]
                         addub1seq <- seq(length(addIndex)) + tmpAdd
                         tmpAdd <- tmpAdd + length(addIndex)
                         tmpGrid <- auditObj$bounds$bdA$m1.ub
                         modelEnv$model$sense <- c(modelEnv$model$sense,
-                                               rep("<=", length(addIndex)))
+                                                  rep("<=", length(addIndex)))
                         modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                             rep(m1.ub,
-                                                 length(addIndex)))
+                                                auditObj$bound$bdA$m1.ub.rhs[addIndex])
                         addm1 <- rbind(addm1, tmpGrid[addIndex, ])
                         rm(tmpGrid)
                         auditObj$bounds$bdA$m1.ub <- NULL
                     }
                     if (i %in% c(9, 10)) {
-                        addIndex <- violateMat[violateMat$type == i,
-                                               "pos"]
                         tmpGrid <- auditObj$mono$monoA$m1
                         if (i == 9) {
                             addmono1incseq <- seq(length(addIndex)) + tmpAdd
                             tmpAdd <- tmpAdd + length(addIndex)
                             modelEnv$model$sense <- c(modelEnv$model$sense,
-                                                   rep(">=", length(addIndex)))
+                                                      rep(">=", length(addIndex)))
+                            modelEnv$model$rhs <- c(modelEnv$model$rhs,
+                                                    auditObj$mono$monoA$m1.inc.rhs[addIndex])
                         } else {
                             addmono1decseq <- seq(length(addIndex)) + tmpAdd
                             tmpAdd <- tmpAdd + length(addIndex)
                             modelEnv$model$sense <- c(modelEnv$model$sense,
-                                                   rep("<=", length(addIndex)))
+                                                      rep("<=", length(addIndex)))
+                            modelEnv$model$rhs <- c(modelEnv$model$rhs,
+                                                    auditObj$mono$monoA$m1.dec.rhs[addIndex])
                         }
-                        modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                             rep(0, length(addIndex)))
                         addm1 <- rbind(addm1, tmpGrid[addIndex, ])
                         rm(tmpGrid)
                         if (i == 10) auditObj$mono$monoA$m1 <- NULL
@@ -1607,53 +1735,48 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                 rm(addm1)
                 ## Expand constraints for mte
                 for (i in types) {
+                    addIndex <- violateMat[violateMat$type == i, "pos"]
                     if (i == 3) {
-                        addIndex <- violateMat[violateMat$type == i,
-                                               "pos"]
                         addlbteseq <- seq(length(addIndex)) + tmpAdd
                         tmpAdd <- tmpAdd + length(addIndex)
                         tmpGrid <- auditObj$bounds$bdA$mte.lb
                         modelEnv$model$sense <- c(modelEnv$model$sense,
                                                rep(">=", length(addIndex)))
                         modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                             rep(mte.lb,
-                                                 length(addIndex)))
+                                                auditObj$bound$bdA$mte.lb.rhs[addIndex])
                         addmte <- rbind(addmte, tmpGrid[addIndex, ])
                         rm(tmpGrid)
                         auditObj$bounds$bdA$mte.lb <- NULL
                     }
                     if (i == 6) {
-                        addIndex <- violateMat[violateMat$type == i,
-                                               "pos"]
                         addubteseq <- seq(length(addIndex)) + tmpAdd
                         tmpAdd <- tmpAdd + length(addIndex)
                         tmpGrid <- auditObj$bounds$bdA$mte.ub
                         modelEnv$model$sense <- c(modelEnv$model$sense,
                                                rep("<=", length(addIndex)))
                         modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                             rep(mte.ub,
-                                                 length(addIndex)))
+                                                auditObj$bound$bdA$mte.ub.rhs[addIndex])
                         addmte <- rbind(addmte, tmpGrid[addIndex, ])
                         rm(tmpGrid)
-                        auditObj$bounds$bdA$mte.lb <- NULL
+                        auditObj$bounds$bdA$mte.ub <- NULL
                     }
                     if (i %in% c(11, 12)) {
-                        addIndex <- violateMat[violateMat$type == i,
-                                               "pos"]
                         tmpGrid <- auditObj$mono$monoA$mte
                         if (i == 11) {
                             addmonoteincseq <- seq(length(addIndex)) + tmpAdd
                             tmpAdd <- tmpAdd + length(addIndex)
                             modelEnv$model$sense <- c(modelEnv$model$sense,
-                                                   rep(">=", length(addIndex)))
+                                                      rep(">=", length(addIndex)))
+                            modelEnv$model$rhs <- c(modelEnv$model$rhs,
+                                                    auditObj$mono$monoA$mte.inc.rhs[addIndex])
                         } else {
                             addmonotedecseq <- seq(length(addIndex)) + tmpAdd
                             tmpAdd <- tmpAdd + length(addIndex)
                             modelEnv$model$sense <- c(modelEnv$model$sense,
-                                                   rep("<=", length(addIndex)))
+                                                      rep("<=", length(addIndex)))
+                            modelEnv$model$rhs <- c(modelEnv$model$rhs,
+                                                    auditObj$mono$monoA$mte.dec.rhs[addIndex])
                         }
-                        modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                             rep(0, length(addIndex)))
                         addmte <- rbind(addmte, tmpGrid[addIndex, ])
                         rm(tmpGrid)
                         if (i == 12) auditObj$mono$monoA$mte <- NULL
@@ -1796,6 +1919,9 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
     }
     if (!is.null(orig.sset) && !is.null(orig.criterion)) {
         output$spectest = minobseqTest$obj
+    }
+    if (cho.russell) {
+        output$cr.inputs = cr.env$grid
     }
     return(output)
 }

@@ -656,39 +656,41 @@ lpSetupBound <- function(env, g0, g1, sset, soft = FALSE,
 
 #' Add perturbations to the LP problem
 #'
-#' This function adds perturbations to the LP problem to carry out the
-#' inference procedure from Cho and Russell (2023, JBES).
+#' This function adds perturbations to the objective vector of the LP
+#' problem to carry out the inference procedure from Cho and Russell
+#' (2023, JBES).
 #'
-#' @param env the environment containing the LP model.
-#' @param perturbation vector containing perturbations. The length of
-#'     this vector should be equal to the length of the MTR
-#'     coefficients plus the number of rows in the constraint matrix
-#'     of the linear program.
+#' @param model.env the environment containing the LP model.
+#' @param cr.env the environment containing the CR perturbations.
 #' @param subtract equal to \code{FALSE} by default. The function adds
 #'     the perturbations to the model inputs by default. Set
 #'     \code{subtract} equal to \code{TRUE} to instead subtract the
-#'     perturbations from the model inputs.
-#' @param constraints equal to \code{FALSE} by default. This option
-#'     controls whether the RHS of the constraints are perturbed. Set
-#'     to \code{TRUE} if the perturbations should be added to the RHS
-#'     of the constraints.
+#'     perturbations from the model inputs. If subtract is equal to
+#'     \code{TRUE}, then twice of the perturbation is subtracted
+#'     off. This is because the function assumes that \code{subtract}
+#'     wil only be set equal to \code{TRUE} if positive perturbations
+#'     were already added, and the objective is to make the
+#'     perturbations negative.
 #' @return Nothing, as this modifies an environment variable to save
 #'     memory.
-lpSetupCR <- function(env, perturbation, subtract = FALSE, constraints = FALSE) {
-    sn <- env$model$sn
-    gn0 <- env$model$gn0
-    gn1 <- env$model$gn1
-    per.obj <- perturbation[1:(gn0 + gn1)]
-    per.constraint <- perturbation[(gn0 + gn1 + 1):length(perturbation)]
-    ## Generate vector containing perturbations to be added
-    tmp.obj <- c(rep(x = 0, times = 2 * sn), per.obj)
-    if (!subtract) {
-        env$model$obj <- env$model$obj + tmp.obj
+lpSetupCR <- function(model.env, cr.env,
+                      subtract = FALSE, cr.epsilon) {
+    sn <- model.env$model$sn
+    gn0 <- model.env$model$gn0
+    gn1 <- model.env$model$gn1
+    ## Generate vector containing perturbations to be added to the
+    ## objective
+    if (is.null(cr.env$obj.per)) {
+        tmp.per <- runif(n = gn0 + gn1, min = 0, max = cr.epsilon)
+        cr.env$obj.per <- tmp.per
     } else {
-        env$model$obj <- env$model$obj - tmp.obj
+        tmp.per <- cr.env$obj.per
     }
-    if (constraints) {
-        env$model$rhs <- env$model$rhs + per.constraint
+    tmp.obj <- c(rep(x = 0, times = 2 * sn), tmp.per)
+    if (!subtract) {
+        model.env$model$obj <- model.env$model$obj + tmp.obj
+    } else {
+        model.env$model$obj <- model.env$model$obj - 2 * tmp.obj
     }
 }
 
@@ -1053,11 +1055,24 @@ bound <- function(env, sset, g0, g1, soft = FALSE,
                   solver.options, noisy = FALSE,
                   smallreturnlist = FALSE,
                   rescale = FALSE,
-                  debug = FALSE) {
+                  debug = FALSE,
+                  cho.russell = FALSE,
+                  cr.env, cr.epsilon, cr.subtract = FALSE) {
     solver <- tolower(solver)
+    if (cho.russell) {
+        ## Obtain Cho and Russell perturbations
+        if (is.null(cr.env$obj.per)) {
+            tmp.per <- runif(n = env$model$gn0 + env$model$gn1,
+                             min = 0, max = cr.epsilon)
+            cr.env$obj.per <- tmp.per
+        } else {
+            tmp.per <- cr.env$obj.per
+        }
+    }
     ## Obtain lower and upper bounds
     if (solver %in% c("gurobi", "rmosek") ) {
         if (!soft) {
+            ## Min. and max. problem WITHOUT soft contraint
             if (debug &&
                 (solver == "gurobi" && solver.options$outputflag == 1) |
                 (solver == "rmosek" && solver.options$verbose == 10)) {
@@ -1102,7 +1117,7 @@ bound <- function(env, sset, g0, g1, soft = FALSE,
             maxoptx <- maxresult$optx
             if (debug) cat("\n")
         } else {
-            ## Minimization problem for soft constraint
+            ## Minimization problem WITH soft constraint
             if (debug &&
                 (solver == "gurobi" && solver.options$outputflag == 1) |
                 (solver == "rmosek" && solver.options$verbose == 10)) {
@@ -1120,6 +1135,9 @@ bound <- function(env, sset, g0, g1, soft = FALSE,
                               replicate(env$model$gn0 + env$model$gn1, 0))
                     env$model$obj <- c(tmpSlack, g0, g1) +
                         criterion.tol["lower"] * avec
+                    if (cho.russell) {
+                        tmp.cr.linf <- NULL
+                    }
                 }
                 if ("direct" %in% names(sset[[1]]) &&
                     sset[[1]]$direct == "linf") {
@@ -1127,6 +1145,18 @@ bound <- function(env, sset, g0, g1, soft = FALSE,
                     avec[length(avec)] <- 1
                     env$model$obj <- c(tmpSlack, g0, g1, 0) +
                         criterion.tol["lower"] * avec
+                    if (cho.russell) {
+                        tmp.cr.linf <- 0
+                    }
+                }
+                if (cho.russell) {
+                    if (cr.subtract) {
+                        env$model$obj <- env$model$obj -
+                            c(tmpSlack, tmp.per, tmp.cr.linf)
+                    } else {
+                        env$model$obj <- env$model$obj +
+                            c(tmpSlack, tmp.per, tmp.cr.linf)
+                    }
                 }
             } else {
                 env$model$obj <- c(g0, g1) +
@@ -1186,7 +1216,7 @@ bound <- function(env, sset, g0, g1, soft = FALSE,
             }
             minstatus <- minresult$status
             minoptx <- minresult$optx
-            ## Maximization problem for soft constraint
+            ## Maximization problem WITH soft constraint
             if (debug &&
                 (solver == "gurobi" && solver.options$outputflag == 1) |
                 (solver == "rmosek" && solver.options$verbose == 10)) {
@@ -1203,6 +1233,15 @@ bound <- function(env, sset, g0, g1, soft = FALSE,
                     sset[[1]]$direct == "linf") {
                     env$model$obj <- c(tmpSlack, g0, g1, 0) -
                         criterion.tol["upper"] * avec
+                }
+                if (cho.russell) {
+                    if (cr.subtract) {
+                        env$model$obj <- env$model$obj -
+                            c(tmpSlack, tmp.per, tmp.cr.linf)
+                    } else {
+                        env$model$obj <- env$model$obj +
+                            c(tmpSlack, tmp.per, tmp.cr.linf)
+                    }
                 }
             } else {
                 env$model$obj <- c(g0, g1) -
