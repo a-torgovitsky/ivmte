@@ -626,9 +626,6 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
             }
             uvec <- sort(unique(c(0, 1, initgrid.u)))
         }
-        print("CR perturbations must enter at latest here.")
-        ## TESTING --------------------------
-        print("THE CODE ABOVE SEEMS TO BE SELECTING INDEXES, NOT GENERATING THE ACTUAL GRID")
         if (cho.russell) {
             cr.env <- new.env()
             if (!hasArg(cr.inputs)) {
@@ -655,7 +652,6 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
         } else {
             cr.env <- NULL
         }
-        ## END OF TEST -----------------------
         monoboundAcall <- modcall(call,
                                   newcall = genmonoboundA,
                                   keepargs = monoboundAlist,
@@ -1265,9 +1261,15 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                                  y = tmp.mcheck,
                                  by = c("type", "grid.x", "grid.u"),
                                  all.x = TRUE)
-            violateMat2[is.na(violateMat2$drop), ]$drop <- FALSE
+            print("About to fail")
+            print(violateMat)
+            print(violateMat2)
+            if (any(is.na(violateMat2$drop))) {
+                violateMat2[is.na(violateMat2$drop), ]$drop <- FALSE
+            }
             violateMat2 <- violateMat2[order(violateMat2$type,
                                              violateMat2$pos), ]
+            print(auditObj2)
             ## Remove entries in auditObj2 matrices that exist in
             ## auditObj matrices.
             type.string <- c("m0.lb", "m1.lb", "mte.lb",
@@ -1300,6 +1302,9 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                     auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]] <-
                         auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]][-tmp.pos]
                     tmp.remaining <- nrow(auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string2]])
+                    if (is.null(dim(tmp.remaining))) {
+                        tmp.remaining <- 1
+                    }
                     ## Remove duplicate violations from the violation
                     ## matrix, and update the positions of
                     ## non-duplciate violations in the violation

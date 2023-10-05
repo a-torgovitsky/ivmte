@@ -654,45 +654,6 @@ lpSetupBound <- function(env, g0, g1, sset, soft = FALSE,
     }
 }
 
-#' Add perturbations to the LP problem
-#'
-#' This function adds perturbations to the objective vector of the LP
-#' problem to carry out the inference procedure from Cho and Russell
-#' (2023, JBES).
-#'
-#' @param model.env the environment containing the LP model.
-#' @param cr.env the environment containing the CR perturbations.
-#' @param subtract equal to \code{FALSE} by default. The function adds
-#'     the perturbations to the model inputs by default. Set
-#'     \code{subtract} equal to \code{TRUE} to instead subtract the
-#'     perturbations from the model inputs. If subtract is equal to
-#'     \code{TRUE}, then twice of the perturbation is subtracted
-#'     off. This is because the function assumes that \code{subtract}
-#'     wil only be set equal to \code{TRUE} if positive perturbations
-#'     were already added, and the objective is to make the
-#'     perturbations negative.
-#' @return Nothing, as this modifies an environment variable to save
-#'     memory.
-lpSetupCR <- function(model.env, cr.env,
-                      subtract = FALSE, cr.epsilon) {
-    sn <- model.env$model$sn
-    gn0 <- model.env$model$gn0
-    gn1 <- model.env$model$gn1
-    ## Generate vector containing perturbations to be added to the
-    ## objective
-    if (is.null(cr.env$obj.per)) {
-        tmp.per <- runif(n = gn0 + gn1, min = 0, max = cr.epsilon)
-        cr.env$obj.per <- tmp.per
-    } else {
-        tmp.per <- cr.env$obj.per
-    }
-    tmp.obj <- c(rep(x = 0, times = 2 * sn), tmp.per)
-    if (!subtract) {
-        model.env$model$obj <- model.env$model$obj + tmp.obj
-    } else {
-        model.env$model$obj <- model.env$model$obj - 2 * tmp.obj
-    }
-}
 
 #' Minimizing violation of observational equivalence
 #'
