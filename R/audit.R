@@ -200,7 +200,6 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                   cr.inputs,
                   smallreturnlist = FALSE,
                   noisy = TRUE, debug = FALSE) {
-    print("Isn't it ugly how you have to reference $grid every time you look into the cr.env object? You should be able to correct this.")
     call  <- match.call()
     solver <- tolower(solver)
     if (noisy == TRUE) {
@@ -1205,6 +1204,7 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                                                  cr.env = cr.env))
         ## cr loop change: You may need to check for violations twice
         ## and then combine the results.
+        print("FIRST AUDIT")
         auditObj <- eval(monoboundAcall)
         ## Combine the violation matrices
         violateMat <- NULL
@@ -1216,8 +1216,13 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
             violateMat <- rbind(violateMat, auditObj$mono$violateMat)
             auditObj$mono$violateMat <- NULL
         }
+        print(violateMat)
+        stop()
         violateMat2 <- NULL
         if (cho.russell) {
+            if (!is.null(violateMat)) {
+                violateMat$cr.per <- -1
+            }
             ## Check for violations for the POSITIVE perturbations
             ## (the most recent set of estimates were for the negative
             ## perturbations, so the object "result" passed into
@@ -1225,6 +1230,7 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
             ## perturbations).
             ##
             ## Perform second audit
+            print("SECOND AUDIT")
             monoboundAcall <-
                 modcall(monoboundAcall,
                         dropargs = c("solution.m0.min",
@@ -1245,6 +1251,9 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                 violateMat2 <- rbind(violateMat2, auditObj2$mono$violateMat)
                 auditObj2$mono$violateMat <- NULL
             }
+            if (!is.null(violateMat2)) {
+                violateMat2$cr.per <- 1
+            }
         }
         if (is.null(violateMat) && !is.null(violateMat2)) {
             auditObj <- auditObj2
@@ -1261,15 +1270,11 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                                  y = tmp.mcheck,
                                  by = c("type", "grid.x", "grid.u"),
                                  all.x = TRUE)
-            print("About to fail")
-            print(violateMat)
-            print(violateMat2)
             if (any(is.na(violateMat2$drop))) {
                 violateMat2[is.na(violateMat2$drop), ]$drop <- FALSE
             }
             violateMat2 <- violateMat2[order(violateMat2$type,
                                              violateMat2$pos), ]
-            print(auditObj2)
             ## Remove entries in auditObj2 matrices that exist in
             ## auditObj matrices.
             type.string <- c("m0.lb", "m1.lb", "mte.lb",
@@ -1293,17 +1298,35 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                         tmp.string2 <- gsub(".inc", "", tmp.string1)
                         tmp.string2 <- gsub(".dec", "", tmp.string2)
                     }
-                    tmp.string.rhs <- paste0(tmp.string1, ".rhs")
+                    tmp.string.rhs <- paste0(tmp.string2, ".mono.rhs")
+                    ## tmp.string.rhs <- paste0(tmp.string1, ".rhs")
                     ## Delete the rows in the matrices and vectors currently
                     ## stored in auditObj2 that will be appended
                     ## to the audit grid
+                    if (tmp.type == 10) {
+                        print("dim and length check")
+                        print(dim(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string2]]))
+                        print(length(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]]))
+                        print("This is tmp.pos")
+                        print(tmp.pos)
+                    }
                     auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string2]] <-
                         auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string2]][-tmp.pos, ]
                     auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]] <-
                         auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]][-tmp.pos]
                     tmp.remaining <- nrow(auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string2]])
-                    if (is.null(dim(tmp.remaining))) {
+                    if (is.null(tmp.remaining)) {
                         tmp.remaining <- 1
+                        auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string2]] <-
+                            matrix(auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string2]],
+                                   nrow = 1)
+                    }
+                    if (tmp.type == 10) {
+                        print("dim and length check after deletion")
+                        print(dim(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string2]]))
+                        print(length(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]]))
+                        print("This is tmp.pos")
+                        print(tmp.pos)
                     }
                     ## Remove duplicate violations from the violation
                     ## matrix, and update the positions of
@@ -1314,10 +1337,24 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                     if (tmp.remaining > 0) {
                         tmp.seq <- seq(tmp.remaining) +
                             nrow(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string2]])
+                        if (tmp.type == 10) {
+                            print("this is tmp.remaining")
+                            print(tmp.remaining)
+                            print("This is the previous matrix")
+                            print(dim(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string2]]))
+                            print("THIS IS tmp.seq")
+                            print(tmp.seq)
+                            print(violateMat2)
+                        }
                         violateMat2[violateMat2$type == tmp.type, "pos"] <- tmp.seq
+                        print("do i make it here>")
                     }
                     ## Combine the matrices and vectors that will
                     ## be added to the LP constraints
+                    if (tmp.type == 10) {
+                        print("This is the rhs side pre addd")
+                        print(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]])
+                    }
                     if (tmp.remaining > 0) {
                         auditObj[[tmp.name1]][[tmp.name2]][[tmp.string2]] <-
                             rbind(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string2]],
@@ -1325,6 +1362,11 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                         auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]] <-
                             c(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]],
                               auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]])
+
+                    }
+                    if (tmp.type == 10) {
+                        print("This is the rhs side post addd")
+                        print(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]])
                     }
                 }
             }
@@ -1333,6 +1375,7 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
             violateMat2$drop <- NULL
             violateMat <- rbind(violateMat, violateMat2)
             violateMat <- violateMat[order(violateMat$type, violateMat$pos), ]
+            stop()
         }
         ## Deal with possible violations when audit and initial grid match
         if (initgrid.nx == audit.nx &&
@@ -1649,25 +1692,45 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                         auditObj$bounds$bdA$m1.ub <- NULL
                     }
                     if (i %in% c(9, 10)) {
+                        ## print(paste("m1rhs pre", i))
+                        ## print(modelEnv$model$rhs)
                         tmpGrid <- auditObj$mono$monoA$m1
                         if (i == 9) {
+                            print("this is the addIndex")
+                            print(addIndex)
+                            print("This is the vector you pull from ")
+                            print(auditObj$mono$monoA$m1.dec.rhs)
+                            print("This is the dimensin of the matrix")
+                            print(dim(auditObj$mono$monoA$m1))
                             addmono1incseq <- seq(length(addIndex)) + tmpAdd
                             tmpAdd <- tmpAdd + length(addIndex)
                             modelEnv$model$sense <- c(modelEnv$model$sense,
                                                       rep(">=", length(addIndex)))
                             modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                                    auditObj$mono$monoA$m1.inc.rhs[addIndex])
+                                                    auditObj$mono$monoA$m1.mono.rhs[addIndex])
+                            ## modelEnv$model$rhs <- c(modelEnv$model$rhs,
+                            ##                         auditObj$mono$monoA$m1.inc.rhs[addIndex])
                         } else {
+                            ## print("this is the addIndex")
+                            ## print(addIndex)
+                            ## print("This is the vector you pull from ")
+                            ## print(auditObj$mono$monoA$m1.dec.rhs)
+                            ## print("This is the dimensin of the matrix")
+                            ## print(dim(auditObj$mono$monoA$m1))
                             addmono1decseq <- seq(length(addIndex)) + tmpAdd
                             tmpAdd <- tmpAdd + length(addIndex)
                             modelEnv$model$sense <- c(modelEnv$model$sense,
                                                       rep("<=", length(addIndex)))
                             modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                                    auditObj$mono$monoA$m1.dec.rhs[addIndex])
+                                                    auditObj$mono$monoA$m1.mono.rhs[addIndex])
+                            ## modelEnv$model$rhs <- c(modelEnv$model$rhs,
+                                                    ## auditObj$mono$monoA$m1.dec.rhs[addIndex])
                         }
                         addm1 <- rbind(addm1, tmpGrid[addIndex, ])
                         rm(tmpGrid)
                         if (i == 10) auditObj$mono$monoA$m1 <- NULL
+                        ## print(paste("m1rhs post", i))
+                        ## print(modelEnv$model$rhs)
                     }
                 }
                 if (!is.null(addm1)) {

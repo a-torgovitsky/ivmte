@@ -350,7 +350,6 @@ genboundA <- function(A0, A1, sset, gridobj, uname, m0.lb, m0.ub,
                                uniqueA0,
                                matrix(0, nrow = nrow(uniqueA0),
                                       ncol = ncol(A1))))
-            ## m0lb <- replicate(nrow(uniqueA0), m0.lb)
             m0lbs <- replicate(nrow(uniqueA0), ">=")
             map <- c(map, gridmap[!duplicatePos])
             umap <- c(umap, grid[!duplicatePos, uname])
@@ -389,7 +388,6 @@ genboundA <- function(A0, A1, sset, gridobj, uname, m0.lb, m0.ub,
                                matrix(0, nrow = nrow(uniqueA1),
                                       ncol = ncol(A0)),
                                uniqueA1))
-            ## m1lb <- replicate(nrow(uniqueA1), m1.lb)
             m1lbs <- replicate(nrow(uniqueA1), ">=")
             map <- c(map, gridmap[!duplicatePos])
             umap <- c(umap, grid[!duplicatePos, uname])
@@ -423,7 +421,6 @@ genboundA <- function(A0, A1, sset, gridobj, uname, m0.lb, m0.ub,
             bdA <- rbind(bdA,
                          cbind(matrix(0, nrow = nrow(A0), ncol = 2 * sn),
                                -A0, A1))
-            ## telb <- replicate(nrow(A1), mte.lb)
             telbs <- replicate(nrow(A1), ">=")
             map <- c(map, gridmap)
             umap <- c(umap, grid[, uname])
@@ -466,7 +463,6 @@ genboundA <- function(A0, A1, sset, gridobj, uname, m0.lb, m0.ub,
                                uniqueA0,
                                matrix(0, nrow = nrow(uniqueA0),
                                       ncol = ncol(A1))))
-            ## m0ub  <- replicate(nrow(uniqueA0), m0.ub)
             m0ubs <- replicate(nrow(uniqueA0), "<=")
             map <- c(map, gridmap[!duplicatePos])
             umap <- c(umap, grid[!duplicatePos, uname])
@@ -505,7 +501,6 @@ genboundA <- function(A0, A1, sset, gridobj, uname, m0.lb, m0.ub,
                                matrix(0, nrow = nrow(uniqueA1),
                                       ncol = ncol(A0)),
                                uniqueA1))
-            ## m1ub  <- replicate(nrow(uniqueA1), m1.ub)
             m1ubs <- replicate(nrow(uniqueA1), "<=")
             map <- c(map, gridmap[!duplicatePos])
             umap <- c(umap, grid[!duplicatePos, uname])
@@ -539,7 +534,6 @@ genboundA <- function(A0, A1, sset, gridobj, uname, m0.lb, m0.ub,
             bdA <- rbind(bdA,
                          cbind(matrix(0, nrow = nrow(A0), ncol = 2 * sn),
                                -A0, A1))
-            ## teub  <- replicate(nrow(A1), mte.ub)
             teubs <- replicate(nrow(A1), "<=")
             map <- c(map, gridmap)
             umap <- c(umap, grid[, uname])
@@ -1003,7 +997,6 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
             violateDiff[negatepos, ] <- -violateDiff[negatepos, ]
             violateDiff <- apply(violateDiff, 1, max)
             violatePos <- violateDiff > audit.tol
-            print(sum(violatePos))
             if (sum(violatePos) > 0) {
                 diff <- c(diff, violateDiff[violatePos])
                 monoA$m0 <- matrix(monoList$monoA0[violatePos, ],
@@ -1096,35 +1089,49 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
             if (sum(violatePos) > 0) {
                 diff <- c(diff, violateDiff[violatePos])
                 monoA$m1 <- matrix(monoList$monoA1[violatePos, ],
-                                      nrow = sum(violatePos))
+                                   nrow = sum(violatePos))
+                print("Dimension of monoA$m1")
+                print(dim(monoA$m1))
                 map <- c(map, monoList$monomap[violatePos])
                 umap <- c(umap, monoList$umap[violatePos, 2])
                 if (m1.type == 1) {
                     monoA1IncSeq <- seq(sum(violatePos))
                     monoA1DecSeq <- NULL
-                    monoA$m1.inc.rhs <- monoList$mono1z[violatePos]
+                    monoA$m1.mono.rhs <- monoList$mono1z[violatePos]
+                    ## monoA$m1.inc.rhs <- monoList$mono1z[violatePos]
                 } else if (m1.type == 2) {
                     monoA1IncSeq <- NULL
                     monoA1DecSeq <- seq(sum(violatePos))
-                    monoA$m1.dec.rhs <- monoList$mono1z[violatePos]
+                    monoA$m1.mono.rhs <- monoList$mono1z[violatePos]
+                    ## monoA$m1.dec.rhs <- monoList$mono1z[violatePos]
                 } else if (m1.type == 3) {
                     ## Include violations for monotone increasing case
                     tmp.half <- nrow(monoList$monoA1) / 2
                     tmp.rhs <- monoList$mono1z[1:tmp.half]
                     tmp.pos <- violatePos[1:tmp.half]
+                    monoA$m1.mono.rhs <- NULL
+                    monoA1IncSeq <- NULL
+                    monoA1DecSeq <- NULL
                     if (any(tmp.pos)) {
-                        monoA$m1.inc.rhs <- tmp.rhs[tmp.pos]
+                        monoA$m1.mono.rhs <- c(monoA$m1.mono.rhs,
+                                               tmp.rhs[tmp.pos])
                         monoA1IncSeq <- seq(sum(tmp.pos))
+                        ## monoA$m1.inc.rhs <- tmp.rhs[tmp.pos]
+                        ## monoA1IncSeq <- seq(sum(tmp.pos))
                     }
                     ## Include violations for monotone decreasing case
                     tmp.rhs <- monoList$mono1z[(tmp.half + 1):(tmp.half * 2)]
                     tmp.pos <- violatePos[(tmp.half + 1):(tmp.half * 2)]
                     if (any(tmp.pos)) {
-                        monoA$m1.dec.rhs <- tmp.rhs[tmp.pos]
-                        monoA1DecSeq <- seq(sum(tmp.pos))
+                        monoA$m1.mono.rhs <- c(monoA$m1.mono.rhs,
+                                               tmp.rhs[tmp.pos])
+                        monoA1DecSeq <- length(monoA1IncSeq) + seq(sum(tmp.pos))
+                        ## monoA$m1.dec.rhs <- tmp.rhs[tmp.pos]
+                        ## monoA1DecSeq <- seq(sum(tmp.pos))
                     }
                 }
             }
+            print("Dont you have to deal with these sequences?")
             rm(m1.type)
             monoList$monoA1 <- NULL
             monoList$monomap <- NULL
