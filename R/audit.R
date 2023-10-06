@@ -1216,6 +1216,7 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
             violateMat <- rbind(violateMat, auditObj$mono$violateMat)
             auditObj$mono$violateMat <- NULL
         }
+        print(auditObj)
         print(violateMat)
         stop()
         violateMat2 <- NULL

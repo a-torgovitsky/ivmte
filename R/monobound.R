@@ -801,6 +801,7 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
     ## inference procedure. The argument cr.tol takes in the
     ## perturbations.
     genmonoA0 <- function(monoObjects, type, cr.tol = NULL, audit = FALSE) {
+        ## Generate constraint matrix
         monoA0 <- A0[uMaxIndex, ] - A0[uMinIndex, ]
         if (is.null(dim(monoA0))) monoA0 <- matrix(monoA0, nrow = 1)
         duplicatePos <- duplicated(monoA0)
@@ -811,35 +812,42 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
                             matrix(0, nrow = nrow(monoA0), ncol = ncol(A1)))
             colnames(monoA0) <- namesA
         }
-        monoObjects$monoA0 <- rbind(monoObjects$monoA0, monoA0)
+        if (type == 1)  monoObjects$monoA0.inc <- monoA0
+        if (type == -1) monoObjects$monoA0.dec <- monoA0
+        ## Generate RHS
         if (is.null(cr.tol)) {
-            monoObjects$mono0z <- c(monoObjects$mono0z,
-                                    replicate(nrow(monoA0), 0))
+            tmp.mono0z <- replicate(nrow(monoA0), 0)
         } else {
-            monoObjects$mono0z <- c(monoObjects$mono0z,
-                                    cr.tol[uMinIndex][!duplicatePos])
+            tmp.mono0z <- cr.tol[uMinIndex][!duplicatePos]
         }
+        if (type == 1)  monoObjects$mono0z.inc <- tmp.mono0z
+        if (type == -1) monoObjects$mono0z.dec <- tmp.mono0z
+        ## Generate sense vector
         if (type == 1) {
-            monoObjects$mono0s <- c(monoObjects$mono0s,
-                                    replicate(nrow(monoA0), ">="))
+            monoObjects$mono0s.inc <- replicate(nrow(monoA0), ">=")
         }
         if (type == -1) {
-            monoObjects$mono0s <- c(monoObjects$mono0s,
-                                    replicate(nrow(monoA0), "<="))
+            monoObjects$mono0s.dec <- replicate(nrow(monoA0), "<=")
         }
-        monoObjects$monoA0seq <- rbind(monoObjects$monoA0seq,
-                                       cbind(seq(1, nrow(monoA0)) +
-                                             monoObjects$countseq,
-                                             type))
-        monoObjects$countseq <- monoObjects$countseq + nrow(monoA0)
-        monoObjects$monomap <- c(monoObjects$monomap,
-                                 gridmap[uMinIndex[!duplicatePos]])
-        monoObjects$umap <- rbind(monoObjects$umap,
-                                  cbind(grid[uMinIndex[!duplicatePos], uname],
-                                        grid[uMaxIndex[!duplicatePos], uname]))
+        ## Generate mappings between constraints, x, and u
+        tmp.monoPos <- cbind(seq(1, nrow(monoA0)), type)
+        tmp.monoMap <- gridmap[uMinIndex[!duplicatePos]]
+        tmp.uMap <- cbind(grid[uMinIndex[!duplicatePos], uname],
+                          grid[uMaxIndex[!duplicatePos], uname])
+        if (type == 1) {
+            monoObjects$monoA0seq.inc <- tmp.monoPos
+            monoObjects$monomap0.inc <- tmp.monoMap
+            monoObjects$umap0.inc <- tmp.uMap
+        }
+        if (type == -1) {
+            monoObjects$monoA0seq.dec <- tmp.monoPos
+            monoObjects$monomap0.dec <- tmp.monoMap
+            monoObjects$umap0.dec <- tmp.uMap
+        }
         return(monoObjects)
     }
     genmonoA1 <- function(monoObjects, type, cr.tol = NULL, audit = FALSE) {
+        ## Generate constraint matrix
         monoA1 <- A1[uMaxIndex, ] - A1[uMinIndex, ]
         if (is.null(dim(monoA1))) monoA1 <- matrix(monoA1, nrow = 1)
         duplicatePos <- duplicated(monoA1)
@@ -850,35 +858,41 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
                             monoA1)
             colnames(monoA1) <- namesA
         }
-        monoObjects$monoA1 <- rbind(monoObjects$monoA1, monoA1)
+        if (type == 1)  monoObjects$monoA1.inc <- monoA1
+        if (type == -1) monoObjects$monoA1.dec <- monoA1
+        ## Generate RHS
         if (is.null(cr.tol)) {
-            monoObjects$mono1z <- c(monoObjects$mono1z,
-                                    replicate(nrow(monoA1), 0))
+            tmp.mono1z <- replicate(nrow(monoA1), 0)
         } else {
-            monoObjects$mono1z <- c(monoObjects$mono1z,
-                                    cr.tol[uMinIndex][!duplicatePos])
+            tmp.mono1z <- cr.tol[uMinIndex][!duplicatePos]
         }
+        if (type == 1)  monoObjects$mono1z.inc <- tmp.mono1z
+        if (type == -1) monoObjects$mono1z.dec <- tmp.mono1z
+        ## Generate sense vector
         if (type == 1) {
-            monoObjects$mono1s <- c(monoObjects$mono1s,
-                                    replicate(nrow(monoA1), ">="))
+            monoObjects$mono1s.inc <- replicate(nrow(monoA1), ">=")
         }
         if (type == -1) {
-            monoObjects$mono1s <- c(monoObjects$mono1s,
-                                    replicate(nrow(monoA1), "<="))
+            monoObjects$mono1s.dec <- replicate(nrow(monoA1), "<=")
         }
-        monoObjects$monoA1seq <- rbind(monoObjects$monoA1seq,
-                                       cbind(seq(1, nrow(monoA1)) +
-                                             monoObjects$countseq,
-                                             type))
-        monoObjects$countseq <- monoObjects$countseq + nrow(monoA1)
-        monoObjects$monomap <- c(monoObjects$monomap,
-                                 gridmap[uMinIndex[!duplicatePos]])
-        monoObjects$umap <- rbind(monoObjects$umap,
-                                  cbind(grid[uMinIndex[!duplicatePos], uname],
-                                        grid[uMaxIndex[!duplicatePos], uname]))
-        return(monoObjects)
-    }
+        ## Generate mappings between constraints, x, and u
+        tmp.monoPos <- cbind(seq(1, nrow(monoA1)), type)
+        tmp.monoMap <- gridmap[uMinIndex[!duplicatePos]]
+        tmp.uMap <- cbind(grid[uMinIndex[!duplicatePos], uname],
+                          grid[uMaxIndex[!duplicatePos], uname])
+        if (type == 1) {
+            monoObjects$monoA1seq.inc <- tmp.monoPos
+            monoObjects$monomap1.inc <- tmp.monoMap
+            monoObjects$umap1.inc <- tmp.uMap
+        }
+        if (type == -1) {
+            monoObjects$monoA1seq.dec <- tmp.monoPos
+            monoObjects$monomap1.dec <- tmp.monoMap
+            monoObjects$umap1.dec <- tmp.uMap
+        }
+        return(monoObjects)    }
     genmonoAte <- function(monoObjects, type, cr.tol = NULL, audit = FALSE) {
+        ## Generate constraint matrix
         monoAte0 <- -A0[uMaxIndex, ] + A0[uMinIndex, ]
         monoAte1 <- A1[uMaxIndex, ] - A1[uMinIndex, ]
         if (is.null(dim(monoAte0))) monoAte0 <- matrix(monoAte0, nrow = 1)
@@ -894,32 +908,39 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
         } else {
             monoAte <- cbind(monoAte0, monoAte1)
         }
-        monoObjects$monoAte <- rbind(monoObjects$monoAte, monoAte)
+        if (type == 1)  monoObjects$monoAte.inc <- monoAte
+        if (type == -1) monoObjects$monoAte.dec <- monoAte
+        ## Generate RHS
         if (is.null(cr.tol)) {
             monoObjects$monotez <- c(monoObjects$monotez,
                                      replicate(nrow(monoAte), 0))
         } else {
-            monoObjects$monotez <- c(monoObjects$monotez,
-                                    cr.tol[uMinIndex][!duplicatePos])
+            tmp.monotez <- cr.tol[uMinIndex][!duplicatePos]
         }
+        if (type == 1)  monoObjects$monotez.inc <- tmp.monotez
+        if (type == -1) monoObjects$monotez.dec <- tmp.monotez
+        ## Generate sense vector
         if (type == 1) {
-            monoObjects$monotes <- c(monoObjects$monotes,
-                                     replicate(nrow(monoAte), ">="))
+            monoObjects$monotes.inc <- replicate(nrow(monoAte), ">=")
         }
         if (type == -1) {
-            monoObjects$monotes <- c(monoObjects$monotes,
-                                     replicate(nrow(monoAte), "<="))
+            monoObjects$monotes.dec <- replicate(nrow(monoAte), "<=")
         }
-        monoObjects$monoAteseq <- rbind(monoObjects$monoAteseq,
-                                        cbind(seq(1, nrow(monoAte)) +
-                                              monoObjects$countseq,
-                                              type))
-        monoObjects$countseq <- monoObjects$countseq + nrow(monoAte)
-        monoObjects$monomap <- c(monoObjects$monomap,
-                                 gridmap[uMinIndex[!duplicatePos]])
-        monoObjects$umap <- rbind(monoObjects$umap,
-                                  cbind(grid[uMinIndex[!duplicatePos], uname],
-                                        grid[uMaxIndex[!duplicatePos], uname]))
+        ## Generate mappings between constraints, x, and u
+        tmp.monoPos <- cbind(seq(1, nrow(monoAte)), type)
+        tmp.monoMap <- gridmap[uMinIndex[!duplicatePos]]
+        tmp.uMap <- cbind(grid[uMinIndex[!duplicatePos], uname],
+                          grid[uMaxIndex[!duplicatePos], uname])
+        if (type == 1) {
+            monoObjects$monoAteseq.inc <- tmp.monoPos
+            monoObjects$monomapte.inc <- tmp.monoMap
+            monoObjects$umapte.inc <- tmp.uMap
+        }
+        if (type == -1) {
+            monoObjects$monoAteseq.dec <- tmp.monoPos
+            monoObjects$monomapte.dec <- tmp.monoMap
+            monoObjects$umapte.dec <- tmp.uMap
+        }
         return(monoObjects)
     }
     ## Implement functions---monotonicity matrices formed immediately
@@ -951,14 +972,12 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
             monoList <- genmonoA0(monoObjects = monoList,
                                   type = 1,
                                   audit = audit)
-            m0.type <- m0.type + 1
         }
         if (is.numeric(m0.inc)) {
             monoList <- genmonoA0(monoObjects = monoList,
                                   type = 1,
                                   cr.tol = m0.inc,
                                   audit = audit)
-            m0.type <- m0.type + 1
         }
     }
     if (hasArg(m0.dec)) {
@@ -966,73 +985,70 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
             monoList <- genmonoA0(monoObjects = monoList,
                                   type = -1,
                                   audit = audit)
-            m0.type <- m0.type + 2
         }
         if (is.numeric(m0.dec)) {
             monoList <- genmonoA0(monoObjects = monoList,
                                   type = -1,
                                   cr.tol = m0.dec,
                                   audit = audit)
-            m0.type <- m0.type + 2
         }
     }
-    ## if (try(m0.inc, silent = TRUE) == TRUE) {
-    ##     monoList <- genmonoA0(monoList, 1, audit)
-    ##     m0.type <- m0.type + 1
-    ## }
-    ## if (try(m0.dec, silent = TRUE) == TRUE) {
-    ##     monoList <- genmonoA0(monoList, -1, audit)
-    ##     m0.type <- m0.type + 2
-    ## }
-    if (!is.null(monoList$monoA0)) {
+    ## Impose checks on A0 being increasing
+    monoA0IncSeq <- NULL
+    if (!is.null(monoList$monoA0.inc)) {
         if (!audit) {
-            monoA <- rbind(monoA, monoList$monoA0)
-            rm(m0.type)
-            monoList$monoA0 <- NULL
+            monoA <- rbind(monoA, monoList$monoA0.inc)
+            monoList$monoA0.inc <- NULL
         } else {
             violateDiff <-
-                cbind(monoList$monoA0 %*% solution.m0.min - monoList$mono0z,
-                      monoList$monoA0 %*% solution.m0.max - monoList$mono0z)
-            negatepos <- which(monoList$mono0s == ">=")
+                cbind(monoList$monoA0.inc %*% solution.m0.min -
+                      monoList$mono0z.inc,
+                      monoList$monoA0.inc %*% solution.m0.max -
+                      monoList$mono0z.inc)
+            negatepos <- which(monoList$mono0s.inc == ">=")
             violateDiff[negatepos, ] <- -violateDiff[negatepos, ]
             violateDiff <- apply(violateDiff, 1, max)
             violatePos <- violateDiff > audit.tol
             if (sum(violatePos) > 0) {
                 diff <- c(diff, violateDiff[violatePos])
-                monoA$m0 <- matrix(monoList$monoA0[violatePos, ],
-                                      nrow = sum(violatePos))
-                map <- c(map, monoList$monomap[violatePos])
-                umap <- c(umap, monoList$umap[violatePos, 2])
-                if (m0.type == 1) {
-                    monoA0IncSeq <- seq(sum(violatePos))
-                    monoA0DecSeq <- NULL
-                    monoA$m0.inc.rhs <- monoList$mono0z[violatePos]
-                } else if (m0.type == 2) {
-                    monoA0IncSeq <- NULL
-                    monoA0DecSeq <- seq(sum(violatePos))
-                    monoA$m0.dec.rhs <- monoList$mono0z[violatePos]
-                } else if (m0.type == 3) {
-                    ## Include violations for monotone increasing case
-                    tmp.half <- nrow(monoList$monoA0) / 2
-                    tmp.rhs <- monoList$mono0z[1:tmp.half]
-                    tmp.pos <- violatePos[1:tmp.half]
-                    if (any(tmp.pos)) {
-                        monoA$m0.inc.rhs <- tmp.rhs[tmp.pos]
-                        monoA0IncSeq <- seq(sum(tmp.pos))
-                    }
-                    ## Include violations for monotone decreasing case
-                    tmp.rhs <- monoList$mono0z[(tmp.half + 1):(tmp.half * 2)]
-                    tmp.pos <- violatePos[(tmp.half + 1):(tmp.half * 2)]
-                    if (any(tmp.pos)) {
-                        monoA$m0.dec.rhs <- tmp.rhs[tmp.pos]
-                        monoA0DecSeq <- seq(sum(tmp.pos))
-                    }
-                }
+                monoA$m0.inc <- matrix(monoList$monoA0.inc[violatePos, ],
+                                       nrow = sum(violatePos))
+                map <- c(map, monoList$monomap1.inc[violatePos])
+                umap <- c(umap, monoList$umap1.inc[violatePos, 2])
+                monoA0IncSeq <- seq(sum(violatePos))
             }
-            rm(m0.type)
-            monoList$monoA0 <- NULL
-            monoList$monomap <- NULL
-            monoList$umap <- NULL
+            monoList$monoA0.inc <- NULL
+            monoList$monomap0.inc <- NULL
+            monoList$umap0.inc <- NULL
+        }
+    }
+    ## Impose checks on A0 being decreasing
+    monoA0DecSeq <- NULL
+    if (!is.null(monoList$monoA0.dec)) {
+        if (!audit) {
+            monoA <- rbind(monoA, monoList$monoA0.dec)
+            monoList$monoA0.dec <- NULL
+        } else {
+            violateDiff <-
+                cbind(monoList$monoA0.dec %*% solution.m0.min -
+                      monoList$mono0z.dec,
+                      monoList$monoA0.dec %*% solution.m0.max -
+                      monoList$mono0z.dec)
+            negatepos <- which(monoList$mono0s.dec == ">=")
+            violateDiff[negatepos, ] <- -violateDiff[negatepos, ]
+            violateDiff <- apply(violateDiff, 1, max)
+            violatePos <- violateDiff > audit.tol
+            if (sum(violatePos) > 0) {
+                diff <- c(diff, violateDiff[violatePos])
+                monoA$m0.dec <- matrix(monoList$monoA0.dec[violatePos, ],
+                                       nrow = sum(violatePos))
+                map <- c(map, monoList$monomap1.dec[violatePos])
+                umap <- c(umap, monoList$umap1.dec[violatePos, 2])
+                monoA0DecSeq <- seq(sum(violatePos))
+            }
+            monoList$monoA0.dec <- NULL
+            monoList$monomap0.dec <- NULL
+            monoList$umap0.dec <- NULL
         }
     }
     ## Impose/check constraints for m1
@@ -1041,14 +1057,12 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
             monoList <- genmonoA1(monoObjects = monoList,
                                   type = 1,
                                   audit = audit)
-            m1.type <- m1.type + 1
         }
         if (is.numeric(m1.inc)) {
             monoList <- genmonoA1(monoObjects = monoList,
                                   type = 1,
                                   cr.tol = m1.inc,
                                   audit = audit)
-            m1.type <- m1.type + 1
         }
     }
     if (hasArg(m1.dec)) {
@@ -1056,86 +1070,70 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
             monoList <- genmonoA1(monoObjects = monoList,
                                   type = -1,
                                   audit = audit)
-            m1.type <- m1.type + 2
         }
         if (is.numeric(m1.dec)) {
             monoList <- genmonoA1(monoObjects = monoList,
                                   type = -1,
                                   cr.tol = m1.dec,
                                   audit = audit)
-            m1.type <- m1.type + 2
         }
     }
-    ## if (try(m1.inc, silent = TRUE) == TRUE) {
-    ##     monoList <- genmonoA1(monoList, 1, audit)
-    ##     m1.type <- m1.type + 1
-    ## }
-    ## if (try(m1.dec, silent = TRUE) == TRUE) {
-    ##     monoList <- genmonoA1(monoList, -1, audit)
-    ##     m1.type <- m1.type + 2
-    ## }
-    if (!is.null(monoList$monoA1)) {
+    ## Impose checks on A1 being increasing
+    monoA1IncSeq <- NULL
+    if (!is.null(monoList$monoA1.inc)) {
         if (!audit) {
-            monoA <- rbind(monoA, monoList$monoA1)
-            monoList$monoA1 <- NULL
+            monoA <- rbind(monoA, monoList$monoA1.inc)
+            monoList$monoA1.inc <- NULL
         } else {
             violateDiff <-
-                cbind(monoList$monoA1 %*% solution.m1.min - monoList$mono1z,
-                      monoList$monoA1 %*% solution.m1.max - monoList$mono1z)
-            negatepos <- which(monoList$mono1s == ">=")
+                cbind(monoList$monoA1.inc %*% solution.m1.min -
+                      monoList$mono1z.inc,
+                      monoList$monoA1.inc %*% solution.m1.max -
+                      monoList$mono1z.inc)
+            negatepos <- which(monoList$mono1s.inc == ">=")
             violateDiff[negatepos, ] <- -violateDiff[negatepos, ]
             violateDiff <- apply(violateDiff, 1, max)
             violatePos <- violateDiff > audit.tol
             if (sum(violatePos) > 0) {
                 diff <- c(diff, violateDiff[violatePos])
-                monoA$m1 <- matrix(monoList$monoA1[violatePos, ],
-                                   nrow = sum(violatePos))
-                print("Dimension of monoA$m1")
-                print(dim(monoA$m1))
-                map <- c(map, monoList$monomap[violatePos])
-                umap <- c(umap, monoList$umap[violatePos, 2])
-                if (m1.type == 1) {
-                    monoA1IncSeq <- seq(sum(violatePos))
-                    monoA1DecSeq <- NULL
-                    monoA$m1.mono.rhs <- monoList$mono1z[violatePos]
-                    ## monoA$m1.inc.rhs <- monoList$mono1z[violatePos]
-                } else if (m1.type == 2) {
-                    monoA1IncSeq <- NULL
-                    monoA1DecSeq <- seq(sum(violatePos))
-                    monoA$m1.mono.rhs <- monoList$mono1z[violatePos]
-                    ## monoA$m1.dec.rhs <- monoList$mono1z[violatePos]
-                } else if (m1.type == 3) {
-                    ## Include violations for monotone increasing case
-                    tmp.half <- nrow(monoList$monoA1) / 2
-                    tmp.rhs <- monoList$mono1z[1:tmp.half]
-                    tmp.pos <- violatePos[1:tmp.half]
-                    monoA$m1.mono.rhs <- NULL
-                    monoA1IncSeq <- NULL
-                    monoA1DecSeq <- NULL
-                    if (any(tmp.pos)) {
-                        monoA$m1.mono.rhs <- c(monoA$m1.mono.rhs,
-                                               tmp.rhs[tmp.pos])
-                        monoA1IncSeq <- seq(sum(tmp.pos))
-                        ## monoA$m1.inc.rhs <- tmp.rhs[tmp.pos]
-                        ## monoA1IncSeq <- seq(sum(tmp.pos))
-                    }
-                    ## Include violations for monotone decreasing case
-                    tmp.rhs <- monoList$mono1z[(tmp.half + 1):(tmp.half * 2)]
-                    tmp.pos <- violatePos[(tmp.half + 1):(tmp.half * 2)]
-                    if (any(tmp.pos)) {
-                        monoA$m1.mono.rhs <- c(monoA$m1.mono.rhs,
-                                               tmp.rhs[tmp.pos])
-                        monoA1DecSeq <- length(monoA1IncSeq) + seq(sum(tmp.pos))
-                        ## monoA$m1.dec.rhs <- tmp.rhs[tmp.pos]
-                        ## monoA1DecSeq <- seq(sum(tmp.pos))
-                    }
-                }
+                monoA$m1.inc <- matrix(monoList$monoA1.inc[violatePos, ],
+                                       nrow = sum(violatePos))
+                map <- c(map, monoList$monomap1.inc[violatePos])
+                umap <- c(umap, monoList$umap1.inc[violatePos, 2])
+                monoA1IncSeq <- seq(sum(violatePos))
             }
-            print("Dont you have to deal with these sequences?")
-            rm(m1.type)
-            monoList$monoA1 <- NULL
-            monoList$monomap <- NULL
-            monoList$umap <- NULL
+            monoList$monoA1.inc <- NULL
+            monoList$monomap1.inc <- NULL
+            monoList$umap1.inc <- NULL
+        }
+    }
+    ## Impose checks on A1 being decreasing
+    monoA1DecSeq <- NULL
+    if (!is.null(monoList$monoA1.dec)) {
+        if (!audit) {
+            monoA <- rbind(monoA, monoList$monoA1.dec)
+            monoList$monoA1.dec <- NULL
+        } else {
+            violateDiff <-
+                cbind(monoList$monoA1.dec %*% solution.m1.min -
+                      monoList$mono1z.dec,
+                      monoList$monoA1.dec %*% solution.m1.max -
+                      monoList$mono1z.dec)
+            negatepos <- which(monoList$mono1s.dec == ">=")
+            violateDiff[negatepos, ] <- -violateDiff[negatepos, ]
+            violateDiff <- apply(violateDiff, 1, max)
+            violatePos <- violateDiff > audit.tol
+            if (sum(violatePos) > 0) {
+                diff <- c(diff, violateDiff[violatePos])
+                monoA$m1.dec <- matrix(monoList$monoA1.dec[violatePos, ],
+                                       nrow = sum(violatePos))
+                map <- c(map, monoList$monomap1.dec[violatePos])
+                umap <- c(umap, monoList$umap1.dec[violatePos, 2])
+                monoA1DecSeq <- seq(sum(violatePos))
+            }
+            monoList$monoA1.dec <- NULL
+            monoList$monomap1.dec <- NULL
+            monoList$umap1.dec <- NULL
         }
     }
     ## Impose/check constraints for ATE
@@ -1144,14 +1142,12 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
             monoList <- genmonoAte(monoObjects = monoList,
                                    type = 1,
                                    audit = audit)
-            mte.type <- mte.type + 1
         }
         if (is.numeric(mte.inc)) {
             monoList <- genmonoAte(monoObjects = monoList,
                                    type = 1,
                                    cr.tol = mte.inc,
                                    audit = audit)
-            mte.type <- mte.type + 1
         }
     }
     if (hasArg(mte.dec)) {
@@ -1159,123 +1155,121 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
             monoList <- genmonoAte(monoObjects = monoList,
                                    type = -1,
                                    audit = audit)
-            mte.type <- mte.type + 2
         }
         if (is.numeric(mte.dec)) {
             monoList <- genmonoAte(monoObjects = monoList,
                                    type = -1,
                                    cr.tol = mte.dec,
                                    audit = audit)
-            mte.type <- mte.type + 2
         }
     }
-    ## if (try(mte.inc, silent = TRUE) == TRUE) {
-    ##     monoList <- genmonoAte(monoList, 1, audit)
-    ##     mte.type <- mte.type + 1
-    ## }
-    ## if (try(mte.dec, silent = TRUE) == TRUE) {
-    ##     monoList <- genmonoAte(monoList, -1, audit)
-    ##     mte.type <- mte.type + 2
-    ## }
+    ## Impose checks on MTE being increasing
+    monoAteIncSeq <- NULL
     if (!is.null(monoList$monoAte)) {
         if (!audit) {
-            monoA <- rbind(monoA, monoList$monoAte)
-            monoList$monoAte <- NULL
+            monoA <- rbind(monoA, monoList$monoAte.inc)
+            monoList$monoAte.inc <- NULL
         } else {
             violateDiff <-
-                cbind(monoList$monoAte %*%
-                      c(solution.m0.min, solution.m1.min) - monoList$monotez,
-                      monoList$monoAte %*%
-                      c(solution.m0.max, solution.m1.max) - monoList$monotez)
-            negatepos <- which(monoList$monotes == ">=")
+                cbind(monoList$monoAte.inc %*%
+                      c(solution.m0.min, solution.m1.min) - monoList$monotez.inc,
+                      monoList$monoAte.inc %*%
+                      c(solution.m0.max, solution.m1.max) - monoList$monotez.inc)
+            negatepos <- which(monoList$monotes.inc == ">=")
             violateDiff[negatepos, ] <- -violateDiff[negatepos, ]
             violateDiff <- apply(violateDiff, 1, max)
             violatePos <- violateDiff > audit.tol
             if (sum(violatePos) > 0) {
                 diff <- c(diff, violateDiff[violatePos])
-                monoA$mte <- matrix(monoList$monoAte[violatePos, ],
-                                       nrow = sum(violatePos))
-                map <- c(map, monoList$monomap[violatePos])
-                umap <- c(umap, monoList$umap[violatePos, 2])
-                if (mte.type == 1) {
-                    monoAteIncSeq <- seq(sum(violatePos))
-                    monoAteDecSeq <- NULL
-                    monoA$mte.inc.rhs <- monoList$monotez[violatePos]
-                } else if (mte.type == 2) {
-                    monoAteIncSeq <- NULL
-                    monoAteDecSeq <- seq(sum(violatePos))
-                    monoA$mte.dec.rhs <- monoList$monotez[violatePos]
-                } else if (mte.type == 3) {
-                    ## Include violations for monotone increasing case
-                    tmp.half <- nrow(monoList$monoAte) / 2
-                    tmp.rhs <- monoList$monotez[1:tmp.half]
-                    tmp.pos <- violatePos[1:tmp.half]
-                    if (any(tmp.pos)) {
-                        monoA$mte.inc.rhs <- tmp.rhs[tmp.pos]
-                        monoAteIncSeq <- seq(sum(tmp.pos))
-                    }
-                    ## Include violations for monotone decreasing case
-                    tmp.rhs <- monoList$monotez[(tmp.half + 1):(tmp.half * 2)]
-                    tmp.pos <- violatePos[(tmp.half + 1):(tmp.half * 2)]
-                    if (any(tmp.pos)) {
-                        monoA$mte.dec.rhs <- tmp.rhs[tmp.pos]
-                        monoAteDecSeq <- seq(sum(tmp.pos))
-                    }
-                }
+                monoA$mte.inc <- matrix(monoList$monoAte.inc[violatePos, ],
+                                        nrow = sum(violatePos))
+                map <- c(map, monoList$monomapte.inc[violatePos])
+                umap <- c(umap, monoList$umapte.inc[violatePos, 2])
+                monoAteIncSeq <- seq(sum(violatePos))
+                monoA$mte.inc.rhs <- monoList$monotez[violatePos]
             }
             rm(mte.type)
-            monoList$monoAte <- NULL
-            monoList$monomap <- NULL
-            monoList$umap <- NULL
+            monoList$monoAte.inc <- NULL
+            monoList$monomapte.inc <- NULL
+            monoList$umapte.inc <- NULL
+        }
+    }
+    ## Impose checks on MTE being decreasing
+    monoAteDecSeq <- NULL
+    if (!is.null(monoList$monoAte)) {
+        if (!audit) {
+            monoA <- rbind(monoA, monoList$monoAte.dec)
+            monoList$monoAte.dec <- NULL
+        } else {
+            violateDiff <-
+                cbind(monoList$monoAte.dec %*%
+                      c(solution.m0.min, solution.m1.min) - monoList$monotez.dec,
+                      monoList$monoAte.dec %*%
+                      c(solution.m0.max, solution.m1.max) - monoList$monotez.dec)
+            negatepos <- which(monoList$monotes.dec == ">=")
+            violateDiff[negatepos, ] <- -violateDiff[negatepos, ]
+            violateDiff <- apply(violateDiff, 1, max)
+            violatePos <- violateDiff > audit.tol
+            if (sum(violatePos) > 0) {
+                diff <- c(diff, violateDiff[violatePos])
+                monoA$mte.dec <- matrix(monoList$monoAte.dec[violatePos, ],
+                                        nrow = sum(violatePos))
+                map <- c(map, monoList$monomapte.dec[violatePos])
+                umap <- c(umap, monoList$umapte.dec[violatePos, 2])
+                monoAteDecSeq <- seq(sum(violatePos))
+                monoA$mte.dec.rhs <- monoList$monotez[violatePos]
+            }
+            rm(mte.type)
+            monoList$monoAte.dec <- NULL
+            monoList$monomapte.dec <- NULL
+            monoList$umapte.dec <- NULL
         }
     }
     if (!audit) {
         ## Combine remaining vectors and return
-        monos   <- c(monoList$mono0s, monoList$mono1s, monoList$monotes)
-        monorhs <- c(monoList$mono0z, monoList$mono1z, monoList$monotez)
-        if (!is.null(monoList$monomap)) {
-            monomap <- matrix(monoList$monomap, ncol = 1)
-            colnames(monomap) <- c("grid.X.index")
-        } else {
-            monomap <- NULL
-        }
-        if (!is.null(monoList$umap)) {
-            umap <- monoList$umap
+        monos   <- c(monoList$mono0s.inc, monoList$mono0s.dec,
+                     monoList$mono1s.inc, monoList$mono1s.dec,
+                     monoList$monotes.inc, monoList$monotes.dec)
+        monorhs <- c(monoList$mono0z.inc, monoList$mono0z.dec,
+                     monoList$mono1z.inc, monoList$mono1z.dec,
+                     monoList$monotez.inc, monoList$monotez.dec)
+        monomap <- c(monoList$monomap0.inc, monoList$monomap0.dec,
+                     monoList$monomap1.inc, monoList$monomap1.dec,
+                     monoList$monomapte.inc, monoList$monomapte.dec)
+        umap <- rbind(monoList$umap0.inc, monoList$umap0.dec,
+                      monoList$umap1.inc, monoList$umap1.dec,
+                      monoList$umapte.inc, monoList$umapte.dec)
+        if (!is.null(umap)) {
+            if (is.null(dim(umap))) {
+                umap <- matrix(umap, nrow = 1)
+            }
             colnames(umap) <- c("u1", "u2")
-        } else {
-            umap <- NULL
         }
-        if ((hasArg(m0.inc) && is.logical(m0.inc) && m0.inc == TRUE) |
-            (hasArg(m0.dec) && is.logical(m0.dec) && m0.dec == TRUE) |
-            (hasArg(m0.inc) && is.numeric(m0.inc)) |
-            (hasArg(m0.dec) && is.numeric(m0.dec))) {
-            mono0seq <- monoList$monoA0seq
-            if (is.null(dim(mono0seq))) mono0seq <- matrix(mono0seq, nrow = 1)
+        ## Construct table of matrix positions for A0
+        mono0seq <- rbind(monoList$monoA0seq.inc, monoList$monoA0seq.dec)
+        if (!is.null(mono0seq)) {
+            if (is.null(mono0seq)) {
+                mono0seq <- matrix(mono0seq, nrow = 1)
+            }
             colnames(mono0seq) <- c("row", "type (inc+/dec-)")
-        } else {
-            mono0seq <- NULL
         }
-        if ((hasArg(m1.inc) && is.logical(m1.inc) && m1.inc == TRUE) |
-            (hasArg(m1.dec) && is.logical(m1.dec) && m1.dec == TRUE) |
-            (hasArg(m1.inc) && is.numeric(m1.inc)) |
-            (hasArg(m1.dec) && is.numeric(m1.dec))) {
-            mono1seq <- monoList$monoA1seq
-            if (is.null(dim(mono1seq))) mono1seq <- matrix(mono1seq, nrow = 1)
+        ## Construct table of matrix positions for A1
+        mono1seq <- rbind(monoList$monoA1seq.inc, monoList$monoA1seq.dec)
+        if (!is.null(mono1seq)) {
+            if (is.null(mono1seq)) {
+                mono1seq <- matrix(mono1seq, nrow = 1)
+            }
             colnames(mono1seq) <- c("row", "type (inc+/dec-)")
-        } else {
-            mono1seq <- NULL
         }
-        if ((hasArg(mte.inc) && is.logical(mte.inc) && mte.inc == TRUE) |
-            (hasArg(mte.dec) && is.logical(mte.dec) && mte.dec == TRUE) |
-            (hasArg(mte.inc) && is.numeric(mte.inc)) |
-            (hasArg(mte.dec) && is.numeric(mte.dec))) {
-            monoteseq <- monoList$monoAteseq
-            if (is.null(dim(monoteseq))) monoteseq <- matrix(monoteseq,
-                                                             nrow = 1)
+        ## Construct table of matrix positions for Ate
+        monoteseq <- rbind(monoList$monoAteseq.inc, monoList$monoAteseq.dec)
+        if (!is.null(monoteseq)) {
+            if (is.null(monoteseq)) {
+                monoteseq <- matrix(monoteseq, nrow = 1)
+            }
             colnames(monoteseq) <- c("row", "type (inc+/dec-)")
-        } else {
-            monoteseq <- NULL
         }
+        ## Return output
         return(list(A = monoA,
                     sense = monos,
                     rhs = monorhs,
@@ -1285,8 +1279,13 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
                     mono1seq = mono1seq,
                     monoteseq = monoteseq))
     } else {
+        tmp.names <- c("m0.inc", "m0.dec",
+                       "m1.inc", "m1.dec",
+                       "mte.inc", "mte.dec")
+        tmp.vcount <- sum(unlist(sapply(X = tmp.names,
+                                        FUN = function(x) nrow(monoA[[x]]))))
         ## Construct violation matrix
-        if (sum(unlist(lapply(monoA, function(x) nrow(x)))) > 0) {
+        if (tmp.vcount > 0) {
             violateMat <- data.frame(pos = c(monoA0IncSeq,
                                              monoA0DecSeq,
                                              monoA1IncSeq,
