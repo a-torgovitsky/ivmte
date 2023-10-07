@@ -201,7 +201,8 @@ lpSetup <- function(env, sset, orig.sset = NULL,
         ##                  colnames(A)[(2 * sn + 1) : ncol(A)])
         tmpIvs <- paste0('iv', lapply(sset, function(x) x$ivspec))
         tmpBetas <- lapply(sset, function(x) names(x$beta))
-        rownames(A) <- mapply(paste, tmpIvs, tmpBetas, sep = '.')
+        rownames(A) <- names(sense) <-
+            mapply(paste, tmpIvs, tmpBetas, sep = '.')
         rm(tmpIvs, tmpBetas)
     } else {
         sn <- 0
@@ -574,68 +575,82 @@ lpSetupBound <- function(env, g0, g1, sset, soft = FALSE,
         } else {
             tmpOffset <- env$model$sn
         }
-        ## Label each row with the corresponding constraint. IV-like
-        ## constraints are already labeled.
-        if (length(env$mbobj$lb0seq) > 0) {
-            rownames(env$model$A)[env$mbobj$lb0seq + tmpOffset] <- 'm0.lb'
-        }
-        if (length(env$mbobj$lb1seq) > 0) {
-            rownames(env$model$A)[env$mbobj$lb1seq + tmpOffset] <- 'm1.lb'
-        }
-        if (length(env$mbobj$lbteseq) > 0) {
-            rownames(env$model$A)[env$mbobj$lbteseq + tmpOffset] <- 'mte.lb'
-        }
-        if (length(env$mbobj$ub0seq) > 0) {
-            rownames(env$model$A)[env$mbobj$ub0seq + tmpOffset] <- 'm0.ub'
-        }
-        if (length(env$mbobj$ub1seq) > 0) {
-            rownames(env$model$A)[env$mbobj$ub1seq + tmpOffset] <- 'm1.ub'
-        }
-        if (length(env$mbobj$ubteseq) > 0) {
-            rownames(env$model$A)[env$mbobj$ubteseq + tmpOffset] <- 'mte.ub'
-        }
-        if (!is.null(env$mbobj$mono0seq)) {
-            tmpDec <- which(env$mbobj$mono0seq[, 2] == -1)
-            if (length(tmpDec) > 0) {
-                tmpDec <- env$mbobj$mono0seq[, 1][tmpDec]
-                rownames(env$model$A)[tmpDec + tmpOffset] <- 'm0.dec'
-            }
-            rm(tmpDec)
-            tmpInc <- which(env$mbobj$mono0seq[, 2] == 1)
-            if (length(tmpInc) > 0) {
-                tmpInc <- env$mbobj$mono0seq[, 1][tmpInc]
-                rownames(env$model$A)[tmpInc + tmpOffset] <- 'm0.inc'
-            }
-            rm(tmpInc)
-        }
-        if (!is.null(env$mbobj$mono1seq)) {
-            tmpDec <- which(env$mbobj$mono1seq[, 2] == -1)
-            if (length(tmpDec) > 0) {
-                tmpDec <- env$mbobj$mono1seq[, 1][tmpDec]
-                rownames(env$model$A)[tmpDec + tmpOffset] <- 'm1.dec'
-            }
-            rm(tmpDec)
-            tmpInc <- which(env$mbobj$mono1seq[, 2] == 1)
-            if (length(tmpInc) > 0) {
-                tmpInc <- env$mbobj$mono1seq[, 1][tmpInc]
-                rownames(env$model$A)[tmpInc + tmpOffset] <- 'm1.inc'
-            }
-            rm(tmpInc)
-        }
-        if (!is.null(env$mbobj$monoteseq)) {
-            tmpDec <- which(env$mbobj$monoteseq[, 2] == -1)
-            if (length(tmpDec) > 0) {
-                tmpDec <- env$mbobj$monoteseq[, 1][tmpDec]
-                rownames(env$model$A)[tmpDec + tmpOffset] <- 'mte.dec'
-            }
-            rm(tmpDec)
-            tmpInc <- which(env$mbobj$monoteseq[, 2] == 1)
-            if (length(tmpInc) > 0) {
-                tmpInc <- env$mbobj$monoteseq[, 1][tmpInc]
-                rownames(env$model$A)[tmpInc + tmpOffset] <- 'mte.inc'
-            }
-            rm(tmpInc)
-        }
+        print("names of A")
+        print(rownames(env$model$A))
+        print("names of sense")
+        print(names(env$model$sense))
+        ## ## Label each row with the corresponding constraint. IV-like
+        ## ## constraints are already labeled.
+        ## if (length(env$mbobj$lb0seq) > 0) {
+        ##     print("do i do any of this")
+        ##     print(env$model$A)
+        ##     print(env$mbobj$lb0seq + tmpOffset)
+        ##     print(dim(env$model$A)[env$mbobj$lb0seq + tmpOffset])
+        ##     rownames(env$model$A)[env$mbobj$lb0seq + tmpOffset] <- 'm0.lb'
+        ##     print("I guess I do")
+        ## }
+        ## if (length(env$mbobj$lb1seq) > 0) {
+        ##     rownames(env$model$A)[env$mbobj$lb1seq + tmpOffset] <- 'm1.lb'
+        ## }
+        ## if (length(env$mbobj$lbteseq) > 0) {
+        ##     rownames(env$model$A)[env$mbobj$lbteseq + tmpOffset] <- 'mte.lb'
+        ## }
+        ## if (length(env$mbobj$ub0seq) > 0) {
+        ##     rownames(env$model$A)[env$mbobj$ub0seq + tmpOffset] <- 'm0.ub'
+        ## }
+        ## if (length(env$mbobj$ub1seq) > 0) {
+        ##     rownames(env$model$A)[env$mbobj$ub1seq + tmpOffset] <- 'm1.ub'
+        ## }
+        ## if (length(env$mbobj$ubteseq) > 0) {
+        ##     rownames(env$model$A)[env$mbobj$ubteseq + tmpOffset] <- 'mte.ub'
+        ## }
+        ## if (!is.null(env$mbobj$mono0seq)) {
+        ##     tmpDec <- which(env$mbobj$mono0seq[, 2] == -1)
+        ##     if (length(tmpDec) > 0) {
+        ##         tmpDec <- env$mbobj$mono0seq[, 1][tmpDec]
+        ##         rownames(env$model$A)[tmpDec + tmpOffset] <- 'm0.dec'
+        ##     }
+        ##     rm(tmpDec)
+        ##     tmpInc <- which(env$mbobj$mono0seq[, 2] == 1)
+        ##     if (length(tmpInc) > 0) {
+        ##         tmpInc <- env$mbobj$mono0seq[, 1][tmpInc]
+        ##         rownames(env$model$A)[tmpInc + tmpOffset] <- 'm0.inc'
+        ##     }
+        ##     rm(tmpInc)
+        ## }
+        ## if (!is.null(env$mbobj$mono1seq)) {
+        ##     tmpDec <- which(env$mbobj$mono1seq[, 2] == -1)
+        ##     if (length(tmpDec) > 0) {
+        ##         tmpDec <- env$mbobj$mono1seq[, 1][tmpDec]
+        ##         rownames(env$model$A)[tmpDec + tmpOffset] <- 'm1.dec'
+        ##     }
+        ##     print("A")
+        ##     print(env$mbobj$mono1seq)
+        ##     print(tmpOffset)
+        ##     print(dim(env$model$A))
+        ##     tmpInc <- which(env$mbobj$mono1seq[, 2] == 1)
+        ##     if (length(tmpInc) > 0) {
+        ##         tmpInc <- env$mbobj$mono1seq[, 1][tmpInc]
+        ##         print(tmpInc)
+        ##         rownames(env$model$A)[tmpInc + tmpOffset] <- 'm1.inc'
+        ##     }
+        ##     rm(tmpInc)
+        ##     print("B")
+        ## }
+        ## if (!is.null(env$mbobj$monoteseq)) {
+        ##     tmpDec <- which(env$mbobj$monoteseq[, 2] == -1)
+        ##     if (length(tmpDec) > 0) {
+        ##         tmpDec <- env$mbobj$monoteseq[, 1][tmpDec]
+        ##         rownames(env$model$A)[tmpDec + tmpOffset] <- 'mte.dec'
+        ##     }
+        ##     rm(tmpDec)
+        ##     tmpInc <- which(env$mbobj$monoteseq[, 2] == 1)
+        ##     if (length(tmpInc) > 0) {
+        ##         tmpInc <- env$mbobj$monoteseq[, 1][tmpInc]
+        ##         rownames(env$model$A)[tmpInc + tmpOffset] <- 'mte.inc'
+        ##     }
+        ##     rm(tmpInc)
+        ## }
         ## Adjust syntax for solver.
         if (!soft) {
             if (solver %in% c("gurobi", "lpsolveapi", "rmosek")) {
@@ -645,6 +660,8 @@ lpSetupBound <- function(env, g0, g1, sset, soft = FALSE,
                 env$model$sense <- c("L", env$model$sense)
             }
         }
+        print(length(env$model$sense))
+        print(dim(env$model$A))
     } else {
         if (!soft) {
             env$model$rhs <- env$model$rhs[-1]

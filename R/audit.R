@@ -1204,7 +1204,6 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                                                  cr.env = cr.env))
         ## cr loop change: You may need to check for violations twice
         ## and then combine the results.
-        print("FIRST AUDIT")
         auditObj <- eval(monoboundAcall)
         ## Combine the violation matrices
         violateMat <- NULL
@@ -1216,9 +1215,6 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
             violateMat <- rbind(violateMat, auditObj$mono$violateMat)
             auditObj$mono$violateMat <- NULL
         }
-        print(auditObj)
-        print(violateMat)
-        stop()
         violateMat2 <- NULL
         if (cho.russell) {
             if (!is.null(violateMat)) {
@@ -1231,7 +1227,6 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
             ## perturbations).
             ##
             ## Perform second audit
-            print("SECOND AUDIT")
             monoboundAcall <-
                 modcall(monoboundAcall,
                         dropargs = c("solution.m0.min",
@@ -1287,47 +1282,29 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                 tmp.sub <- violateMat2[violateMat2$drop == TRUE &
                                        violateMat2$type == tmp.type, ]
                 if (nrow(tmp.sub) > 0) {
-                    tmp.string1 <- type.string[tmp.type]
+                    tmp.string <- type.string[tmp.type]
                     tmp.pos <- tmp.sub$pos
                     if (tmp.type <= 6) {
                         tmp.name1 <- "bounds"
                         tmp.name2 <- "bdA"
-                        tmp.string2 <- tmp.string1
                     } else {
                         tmp.name1 <- "mono"
                         tmp.name2 <- "monoA"
-                        tmp.string2 <- gsub(".inc", "", tmp.string1)
-                        tmp.string2 <- gsub(".dec", "", tmp.string2)
                     }
-                    tmp.string.rhs <- paste0(tmp.string2, ".mono.rhs")
-                    ## tmp.string.rhs <- paste0(tmp.string1, ".rhs")
+                    tmp.string.rhs <- paste0(tmp.string, ".rhs")
                     ## Delete the rows in the matrices and vectors currently
                     ## stored in auditObj2 that will be appended
                     ## to the audit grid
-                    if (tmp.type == 10) {
-                        print("dim and length check")
-                        print(dim(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string2]]))
-                        print(length(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]]))
-                        print("This is tmp.pos")
-                        print(tmp.pos)
-                    }
-                    auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string2]] <-
-                        auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string2]][-tmp.pos, ]
+                    auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string]] <-
+                        auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string]][-tmp.pos, ]
                     auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]] <-
                         auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]][-tmp.pos]
-                    tmp.remaining <- nrow(auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string2]])
+                    tmp.remaining <- nrow(auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string]])
                     if (is.null(tmp.remaining)) {
                         tmp.remaining <- 1
-                        auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string2]] <-
-                            matrix(auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string2]],
+                        auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string]] <-
+                            matrix(auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string]],
                                    nrow = 1)
-                    }
-                    if (tmp.type == 10) {
-                        print("dim and length check after deletion")
-                        print(dim(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string2]]))
-                        print(length(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]]))
-                        print("This is tmp.pos")
-                        print(tmp.pos)
                     }
                     ## Remove duplicate violations from the violation
                     ## matrix, and update the positions of
@@ -1337,37 +1314,18 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                                                  violateMat2$type == tmp.type), ]
                     if (tmp.remaining > 0) {
                         tmp.seq <- seq(tmp.remaining) +
-                            nrow(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string2]])
-                        if (tmp.type == 10) {
-                            print("this is tmp.remaining")
-                            print(tmp.remaining)
-                            print("This is the previous matrix")
-                            print(dim(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string2]]))
-                            print("THIS IS tmp.seq")
-                            print(tmp.seq)
-                            print(violateMat2)
-                        }
+                            nrow(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string]])
                         violateMat2[violateMat2$type == tmp.type, "pos"] <- tmp.seq
-                        print("do i make it here>")
                     }
                     ## Combine the matrices and vectors that will
                     ## be added to the LP constraints
-                    if (tmp.type == 10) {
-                        print("This is the rhs side pre addd")
-                        print(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]])
-                    }
                     if (tmp.remaining > 0) {
-                        auditObj[[tmp.name1]][[tmp.name2]][[tmp.string2]] <-
-                            rbind(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string2]],
-                                  auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string2]])
+                        auditObj[[tmp.name1]][[tmp.name2]][[tmp.string]] <-
+                            rbind(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string]],
+                                  auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string]])
                         auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]] <-
                             c(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]],
                               auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]])
-
-                    }
-                    if (tmp.type == 10) {
-                        print("This is the rhs side post addd")
-                        print(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]])
                     }
                 }
             }
@@ -1376,7 +1334,7 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
             violateMat2$drop <- NULL
             violateMat <- rbind(violateMat, violateMat2)
             violateMat <- violateMat[order(violateMat$type, violateMat$pos), ]
-            stop()
+            rm(violateMat2)
         }
         ## Deal with possible violations when audit and initial grid match
         if (initgrid.nx == audit.nx &&
@@ -1568,48 +1526,52 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                     addIndex <- violateMat[violateMat$type == i, "pos"]
                     if (i == 1) {
                         addlb0seq <- seq(length(addIndex)) + tmpAdd
-                        tmpAdd <- tmpAdd + length(addIndex)
                         tmpGrid <- auditObj$bounds$bdA$m0.lb
+                        tmp.sense <- rep(">=", length(addIndex))
+                        names(tmp.sense) <- rep("m0.lb", length(addIndex))
                         modelEnv$model$sense <- c(modelEnv$model$sense,
-                                               rep(">=", length(addIndex)))
+                                                  tmp.sense)
                         modelEnv$model$rhs <- c(modelEnv$model$rhs,
                                                 auditObj$bound$bdA$m0.lb.rhs[addIndex])
-                        addm0 <- rbind(addm0, tmpGrid[addIndex, ])
-                        rm(tmpGrid)
                         auditObj$bounds$bdA$m0.lb <- NULL
                     }
                     if (i == 4) {
                         addub0seq <- seq(length(addIndex)) + tmpAdd
-                        tmpAdd <- tmpAdd + length(addIndex)
                         tmpGrid <- auditObj$bounds$bdA$m0.ub
+                        tmp.sense <- rep("<=", length(addIndex))
+                        names(tmp.sense) <- rep("m0.ub", length(addIndex))
                         modelEnv$model$sense <- c(modelEnv$model$sense,
-                                               rep("<=", length(addIndex)))
+                                                  tmp.sense)
                         modelEnv$model$rhs <- c(modelEnv$model$rhs,
                                                 auditObj$bound$bdA$m0.ub.rhs[addIndex])
-                        addm0 <- rbind(addm0, tmpGrid[addIndex, ])
-                        rm(tmpGrid)
                         auditObj$bounds$bdA$m0.ub <- NULL
                     }
-                    if (i %in% c(7, 8)) {
-                        tmpGrid <- auditObj$mono$monoA$m0
-                        if (i == 7) {
-                            addmono0incseq <- seq(length(addIndex)) + tmpAdd
-                            tmpAdd <- tmpAdd + length(addIndex)
-                            modelEnv$model$sense <- c(modelEnv$model$sense,
-                                                      rep(">=", length(addIndex)))
-                            modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                                    auditObj$mono$monoA$m0.inc.rhs[addIndex])
-                        } else {
-                            addmono0decseq <- seq(length(addIndex)) + tmpAdd
-                            tmpAdd <- tmpAdd + length(addIndex)
-                            modelEnv$model$sense <- c(modelEnv$model$sense,
-                                                      rep("<=", length(addIndex)))
-                            modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                                    auditObj$mono$monoA$m0.dec.rhs[addIndex])
-                        }
+                    if (i == 7) {
+                        addmono0incseq <- seq(length(addIndex)) + tmpAdd
+                        tmpGrid <- auditObj$mono$monoA$m0.inc
+                        tmp.sense <- rep(">=", length(addIndex))
+                        names(tmp.sense) <- rep("m0.inc", length(addIndex))
+                        modelEnv$model$sense <- c(modelEnv$model$sense,
+                                                  tmp.sense)
+                        modelEnv$model$rhs <- c(modelEnv$model$rhs,
+                                                auditObj$mono$monoA$m0.inc.rhs[addIndex])
+                        auditObj$mono$monoA$m0.inc <- NULL
+                    }
+                    if (i == 8) {
+                        addmono0decseq <- seq(length(addIndex)) + tmpAdd
+                        tmpGrid <- auditObj$mono$monoA$m0.dec
+                        tmp.sense <- rep("<=", length(addIndex))
+                        names(tmp.sense) <- rep("m0.dec", length(addIndex))
+                        modelEnv$model$sense <- c(modelEnv$model$sense,
+                                                  tmp.sense)
+                        modelEnv$model$rhs <- c(modelEnv$model$rhs,
+                                                auditObj$mono$monoA$m0.dec.rhs[addIndex])
+                        auditObj$mono$monoA$m0.dec <- NULL
+                    }
+                    if (i %in% c(1, 4, 7, 8) && length(addIndex) > 0) {
+                        tmpAdd <- tmpAdd + length(addIndex)
                         addm0 <- rbind(addm0, tmpGrid[addIndex, ])
                         rm(tmpGrid)
-                        if (i == 8) auditObj$mono$monoA$m0 <- NULL
                     }
                 }
                 if (!is.null(addm0)) {
@@ -1670,68 +1632,52 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                     addIndex <- violateMat[violateMat$type == i, "pos"]
                     if (i == 2) {
                         addlb1seq <- seq(length(addIndex)) + tmpAdd
-                        tmpAdd <- tmpAdd + length(addIndex)
                         tmpGrid <- auditObj$bounds$bdA$m1.lb
+                        tmp.sense <- rep(">=", length(addIndex))
+                        names(tmp.sense) <- rep("m1.lb", length(addIndex))
                         modelEnv$model$sense <- c(modelEnv$model$sense,
-                                                  rep(">=", length(addIndex)))
+                                                  tmp.sense)
                         modelEnv$model$rhs <- c(modelEnv$model$rhs,
                                                 auditObj$bound$bdA$m1.lb.rhs[addIndex])
-                        addm1 <- rbind(addm1, tmpGrid[addIndex, ])
-                        rm(tmpGrid)
                         auditObj$bounds$bdA$m1.lb <- NULL
                     }
                     if (i == 5) {
                         addub1seq <- seq(length(addIndex)) + tmpAdd
-                        tmpAdd <- tmpAdd + length(addIndex)
                         tmpGrid <- auditObj$bounds$bdA$m1.ub
+                        tmp.sense <- rep("<=", length(addIndex))
+                        names(tmp.sense) <- rep("m1.ub", length(addIndex))
                         modelEnv$model$sense <- c(modelEnv$model$sense,
-                                                  rep("<=", length(addIndex)))
+                                                  tmp.sense)
                         modelEnv$model$rhs <- c(modelEnv$model$rhs,
                                                 auditObj$bound$bdA$m1.ub.rhs[addIndex])
-                        addm1 <- rbind(addm1, tmpGrid[addIndex, ])
-                        rm(tmpGrid)
                         auditObj$bounds$bdA$m1.ub <- NULL
                     }
-                    if (i %in% c(9, 10)) {
-                        ## print(paste("m1rhs pre", i))
-                        ## print(modelEnv$model$rhs)
-                        tmpGrid <- auditObj$mono$monoA$m1
-                        if (i == 9) {
-                            print("this is the addIndex")
-                            print(addIndex)
-                            print("This is the vector you pull from ")
-                            print(auditObj$mono$monoA$m1.dec.rhs)
-                            print("This is the dimensin of the matrix")
-                            print(dim(auditObj$mono$monoA$m1))
-                            addmono1incseq <- seq(length(addIndex)) + tmpAdd
-                            tmpAdd <- tmpAdd + length(addIndex)
-                            modelEnv$model$sense <- c(modelEnv$model$sense,
-                                                      rep(">=", length(addIndex)))
-                            modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                                    auditObj$mono$monoA$m1.mono.rhs[addIndex])
-                            ## modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                            ##                         auditObj$mono$monoA$m1.inc.rhs[addIndex])
-                        } else {
-                            ## print("this is the addIndex")
-                            ## print(addIndex)
-                            ## print("This is the vector you pull from ")
-                            ## print(auditObj$mono$monoA$m1.dec.rhs)
-                            ## print("This is the dimensin of the matrix")
-                            ## print(dim(auditObj$mono$monoA$m1))
-                            addmono1decseq <- seq(length(addIndex)) + tmpAdd
-                            tmpAdd <- tmpAdd + length(addIndex)
-                            modelEnv$model$sense <- c(modelEnv$model$sense,
-                                                      rep("<=", length(addIndex)))
-                            modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                                    auditObj$mono$monoA$m1.mono.rhs[addIndex])
-                            ## modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                                    ## auditObj$mono$monoA$m1.dec.rhs[addIndex])
-                        }
+                    if (i == 9) {
+                        addmono1incseq <- seq(length(addIndex)) + tmpAdd
+                        tmpGrid <- auditObj$mono$monoA$m1.inc
+                        tmp.sense <- rep(">=", length(addIndex))
+                        names(tmp.sense) <- rep("m1.inc", length(addIndex))
+                        modelEnv$model$sense <- c(modelEnv$model$sense,
+                                                  tmp.sense)
+                        modelEnv$model$rhs <- c(modelEnv$model$rhs,
+                                                auditObj$mono$monoA$m1.inc.rhs[addIndex])
+                        auditObj$mono$monoA$m1.inc <- NULL
+                    }
+                    if (i == 10) {
+                        addmono1decseq <- seq(length(addIndex)) + tmpAdd
+                        tmpGrid <- auditObj$mono$monoA$m1.dec
+                        tmp.sense <- rep("<=", length(addIndex))
+                        names(tmp.sense) <- rep("m1.dec", length(addIndex))
+                        modelEnv$model$sense <- c(modelEnv$model$sense,
+                                                  tmp.sense)
+                        modelEnv$model$rhs <- c(modelEnv$model$rhs,
+                                                auditObj$mono$monoA$m1.dec.rhs[addIndex])
+                        auditObj$mono$monoA$m1.dec <- NULL
+                    }
+                    if (i %in% c(2, 5, 9, 10) && length(addIndex) > 0) {
+                        tmpAdd <- tmpAdd + length(addIndex)
                         addm1 <- rbind(addm1, tmpGrid[addIndex, ])
                         rm(tmpGrid)
-                        if (i == 10) auditObj$mono$monoA$m1 <- NULL
-                        ## print(paste("m1rhs post", i))
-                        ## print(modelEnv$model$rhs)
                     }
                 }
                 if (!is.null(addm1)) {
@@ -1758,20 +1704,6 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                                         STATS = modelEnv$colNorms,
                                         FUN = '/')
                     }
-                    ## Expand additional constraints to allow for new variables
-                    ## if (qp.switch && !soft) {
-                    ##     tmpA <- Matrix::Matrix(0, nrow = nrow(tmpMat),
-                    ##                            ncol = ncol(sset$s1$g0) +
-                    ##                                ncol(sset$s1$g1))
-                    ##     colnames(tmpA) <- paste0("yhat.", seq(ncol(sset$s1$g0) +
-                    ##                                           ncol(sset$s1$g1)))
-                    ## } else if (!qp.switch &&
-                    ##            "direct" %in% names(sset[[1]]) &&
-                    ##            sset[[1]]$direct == "linf") {
-                    ##     tmpA <- 0
-                    ## } else {
-                    ##     tmpA <- NULL
-                    ## }
                     if ("direct" %in% names(sset[[1]]) &&
                         sset[[1]]$direct == "linf") {
                         tmpA <- 0
@@ -1807,48 +1739,52 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                     addIndex <- violateMat[violateMat$type == i, "pos"]
                     if (i == 3) {
                         addlbteseq <- seq(length(addIndex)) + tmpAdd
-                        tmpAdd <- tmpAdd + length(addIndex)
                         tmpGrid <- auditObj$bounds$bdA$mte.lb
+                        tmp.sense <- rep(">=", length(addIndex))
+                        names(tmp.sense) <- rep("mte.lb", length(addIndex))
                         modelEnv$model$sense <- c(modelEnv$model$sense,
-                                               rep(">=", length(addIndex)))
+                                                  tmp.sense)
                         modelEnv$model$rhs <- c(modelEnv$model$rhs,
                                                 auditObj$bound$bdA$mte.lb.rhs[addIndex])
-                        addmte <- rbind(addmte, tmpGrid[addIndex, ])
-                        rm(tmpGrid)
                         auditObj$bounds$bdA$mte.lb <- NULL
                     }
                     if (i == 6) {
                         addubteseq <- seq(length(addIndex)) + tmpAdd
-                        tmpAdd <- tmpAdd + length(addIndex)
                         tmpGrid <- auditObj$bounds$bdA$mte.ub
+                        tmp.sense <- rep("<=", length(addIndex))
+                        names(tmp.sense) <- rep("mte.ub", length(addIndex))
                         modelEnv$model$sense <- c(modelEnv$model$sense,
-                                               rep("<=", length(addIndex)))
+                                                  tmp.sense)
                         modelEnv$model$rhs <- c(modelEnv$model$rhs,
                                                 auditObj$bound$bdA$mte.ub.rhs[addIndex])
-                        addmte <- rbind(addmte, tmpGrid[addIndex, ])
-                        rm(tmpGrid)
                         auditObj$bounds$bdA$mte.ub <- NULL
                     }
-                    if (i %in% c(11, 12)) {
-                        tmpGrid <- auditObj$mono$monoA$mte
-                        if (i == 11) {
-                            addmonoteincseq <- seq(length(addIndex)) + tmpAdd
-                            tmpAdd <- tmpAdd + length(addIndex)
-                            modelEnv$model$sense <- c(modelEnv$model$sense,
-                                                      rep(">=", length(addIndex)))
-                            modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                                    auditObj$mono$monoA$mte.inc.rhs[addIndex])
-                        } else {
-                            addmonotedecseq <- seq(length(addIndex)) + tmpAdd
-                            tmpAdd <- tmpAdd + length(addIndex)
-                            modelEnv$model$sense <- c(modelEnv$model$sense,
-                                                      rep("<=", length(addIndex)))
-                            modelEnv$model$rhs <- c(modelEnv$model$rhs,
-                                                    auditObj$mono$monoA$mte.dec.rhs[addIndex])
-                        }
+                    if (i == 11) {
+                        addmonoteincseq <- seq(length(addIndex)) + tmpAdd
+                        tmpGrid <- auditObj$mono$monoA$mte.inc
+                        tmp.sense <- rep(">=", length(addIndex))
+                        names(tmp.sense) <- rep("mte.inc", length(addIndex))
+                        modelEnv$model$sense <- c(modelEnv$model$sense,
+                                                  tmp.sense)
+                        modelEnv$model$rhs <- c(modelEnv$model$rhs,
+                                                auditObj$mono$monoA$mte.inc.rhs[addIndex])
+                        auditObj$mono$monoA$mte.inc <- NULL
+                    }
+                    if (i == 12) {
+                        addmonotedecseq <- seq(length(addIndex)) + tmpAdd
+                        tmpGrid <- auditObj$mono$monoA$mte.dec
+                        tmp.sense <- rep("<=", length(addIndex))
+                        names(tmp.sense) <- rep("mte.dec", length(addIndex))
+                        modelEnv$model$sense <- c(modelEnv$model$sense,
+                                                  tmp.sense)
+                        modelEnv$model$rhs <- c(modelEnv$model$rhs,
+                                                auditObj$mono$monoA$mte.dec.rhs[addIndex])
+                        auditObj$mono$monoA$mte.dec <- NULL
+                    }
+                    if (i %in% c(3, 6, 11, 12) && length(addIndex) > 0) {
+                        tmpAdd <- tmpAdd + length(addIndex)
                         addmte <- rbind(addmte, tmpGrid[addIndex, ])
                         rm(tmpGrid)
-                        if (i == 12) auditObj$mono$monoA$mte <- NULL
                     }
                 }
                 if (!is.null(addmte)) {
@@ -1862,33 +1798,6 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                                         STATS = modelEnv$colNorms,
                                         FUN = '/')
                     }
-                    ## Expand additional constraints to allow for new variable
-                    ## if (qp.switch && !soft) {
-                    ##     if (sset$s1$direct == "qp") {
-                    ##         tmpA <- Matrix::Matrix(0,
-                    ##                                nrow = nrow(tmpMat),
-                    ##                                ncol = ncol(sset$s1$g0) +
-                    ##                                    ncol(sset$s1$g1))
-                    ##         colnames(tmpA) <- paste0("yhat.",
-                    ##                                  seq(ncol(sset$s1$g0) +
-                    ##                                      ncol(sset$s1$g1)))
-                    ##     }
-                    ##     if (sset$s1$direct == "l2") {
-                    ##         tmpA <- Matrix::Matrix(0,
-                    ##                                nrow = nrow(tmpMat),
-                    ##                                ncol = length(sset$s1$g0) +
-                    ##                                    length(sset$s1$g1))
-                    ##         colnames(tmpA) <- paste0("yhat.",
-                    ##                                  seq(length(sset$s1$g0) +
-                    ##                                      length(sset$s1$g1)))
-                    ##     }
-                    ## } else if (!qp.switch &&
-                    ##            "direct" %in% names(sset[[1]]) &&
-                    ##            sset[[1]]$direct == "linf") {
-                    ##     tmpA <- 0
-                    ## } else {
-                    ##     tmpA <- NULL
-                    ## }
                     if ("direct" %in% names(sset[[1]]) &&
                         sset[[1]]$direct == "linf") {
                         tmpA <- 0
