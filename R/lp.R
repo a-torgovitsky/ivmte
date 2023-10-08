@@ -575,19 +575,10 @@ lpSetupBound <- function(env, g0, g1, sset, soft = FALSE,
         } else {
             tmpOffset <- env$model$sn
         }
-        print("names of A")
-        print(rownames(env$model$A))
-        print("names of sense")
-        print(names(env$model$sense))
         ## ## Label each row with the corresponding constraint. IV-like
         ## ## constraints are already labeled.
         ## if (length(env$mbobj$lb0seq) > 0) {
-        ##     print("do i do any of this")
-        ##     print(env$model$A)
-        ##     print(env$mbobj$lb0seq + tmpOffset)
-        ##     print(dim(env$model$A)[env$mbobj$lb0seq + tmpOffset])
         ##     rownames(env$model$A)[env$mbobj$lb0seq + tmpOffset] <- 'm0.lb'
-        ##     print("I guess I do")
         ## }
         ## if (length(env$mbobj$lb1seq) > 0) {
         ##     rownames(env$model$A)[env$mbobj$lb1seq + tmpOffset] <- 'm1.lb'
@@ -624,18 +615,12 @@ lpSetupBound <- function(env, g0, g1, sset, soft = FALSE,
         ##         tmpDec <- env$mbobj$mono1seq[, 1][tmpDec]
         ##         rownames(env$model$A)[tmpDec + tmpOffset] <- 'm1.dec'
         ##     }
-        ##     print("A")
-        ##     print(env$mbobj$mono1seq)
-        ##     print(tmpOffset)
-        ##     print(dim(env$model$A))
         ##     tmpInc <- which(env$mbobj$mono1seq[, 2] == 1)
         ##     if (length(tmpInc) > 0) {
         ##         tmpInc <- env$mbobj$mono1seq[, 1][tmpInc]
-        ##         print(tmpInc)
         ##         rownames(env$model$A)[tmpInc + tmpOffset] <- 'm1.inc'
         ##     }
         ##     rm(tmpInc)
-        ##     print("B")
         ## }
         ## if (!is.null(env$mbobj$monoteseq)) {
         ##     tmpDec <- which(env$mbobj$monoteseq[, 2] == -1)
@@ -660,8 +645,6 @@ lpSetupBound <- function(env, g0, g1, sset, soft = FALSE,
                 env$model$sense <- c("L", env$model$sense)
             }
         }
-        print(length(env$model$sense))
-        print(dim(env$model$A))
     } else {
         if (!soft) {
             env$model$rhs <- env$model$rhs[-1]

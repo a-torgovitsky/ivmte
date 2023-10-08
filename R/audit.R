@@ -473,9 +473,9 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
     ## Generate the components for the audit grid, and generate the
     ## initial grid
     monoboundAlist <- c('sset', 'gstar0', 'gstar1',
-                        'm1.ub', 'm0.ub',
-                        'm1.lb', 'm0.lb',
-                        'mte.ub', 'mte.lb',
+                        'm0.lb', 'm0.ub',
+                        'm1.lb', 'm1.ub',
+                        'mte.lb', 'mte.ub',
                         'm0.dec', 'm0.inc',
                         'm1.dec', 'm1.inc',
                         'mte.dec', 'mte.inc',
@@ -1037,12 +1037,7 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
             if (result$error == TRUE) {
                 errMess <- NULL
                 errTypes <- NULL
-                for (type in c('min', 'max')) { ## cr loop change: include
-                    ## min-pos, min-neg,
-                    ## max-pos, max-neg.
-                    ##
-                    ## cr loop change: Notice many more string substitutions below must
-                    ## also change.
+                for (type in c('min', 'max')) {
                     tmpName <- paste0(type, 'status')
                     if (type == 'min') tmpType <- 'minimization'
                     if (type == 'max') tmpType <- 'maximization'
@@ -1202,8 +1197,6 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                                                  qp = qp.switch,
                                                  cho.russell = cho.russell,
                                                  cr.env = cr.env))
-        ## cr loop change: You may need to check for violations twice
-        ## and then combine the results.
         auditObj <- eval(monoboundAcall)
         ## Combine the violation matrices
         violateMat <- NULL
@@ -1279,19 +1272,19 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                              "m1.inc", "m1.dec",
                              "mte.inc", "mte.dec")
             for (tmp.type in seq(12)) {
+                tmp.string <- type.string[tmp.type]
+                if (tmp.type <= 6) {
+                    tmp.name1 <- "bounds"
+                    tmp.name2 <- "bdA"
+                } else {
+                    tmp.name1 <- "mono"
+                    tmp.name2 <- "monoA"
+                }
+                tmp.string.rhs <- paste0(tmp.string, ".rhs")
                 tmp.sub <- violateMat2[violateMat2$drop == TRUE &
                                        violateMat2$type == tmp.type, ]
                 if (nrow(tmp.sub) > 0) {
-                    tmp.string <- type.string[tmp.type]
                     tmp.pos <- tmp.sub$pos
-                    if (tmp.type <= 6) {
-                        tmp.name1 <- "bounds"
-                        tmp.name2 <- "bdA"
-                    } else {
-                        tmp.name1 <- "mono"
-                        tmp.name2 <- "monoA"
-                    }
-                    tmp.string.rhs <- paste0(tmp.string, ".rhs")
                     ## Delete the rows in the matrices and vectors currently
                     ## stored in auditObj2 that will be appended
                     ## to the audit grid
@@ -1327,6 +1320,16 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                             c(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]],
                               auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]])
                     }
+                } else {
+                    ## If no duplicates at all, simply combine the
+                    ## matrices and vectors of the LP constraints
+                    ## across both audits
+                    auditObj[[tmp.name1]][[tmp.name2]][[tmp.string]] <-
+                        rbind(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string]],
+                              auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string]])
+                    auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]] <-
+                        c(auditObj[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]],
+                          auditObj2[[tmp.name1]][[tmp.name2]][[tmp.string.rhs]])
                 }
             }
             ## Combine violation matrices
@@ -1571,6 +1574,9 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                     if (i %in% c(1, 4, 7, 8) && length(addIndex) > 0) {
                         tmpAdd <- tmpAdd + length(addIndex)
                         addm0 <- rbind(addm0, tmpGrid[addIndex, ])
+                        if (is.null(rownames(addm0))) {
+                            rownames(addm0) <- rownames(tmpGrid)[addIndex]
+                        }
                         rm(tmpGrid)
                     }
                 }
