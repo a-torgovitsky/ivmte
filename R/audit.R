@@ -1004,19 +1004,6 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
             }
             if (tmp.rc == 1) {
                 result1 <- do.call(bound, bound.args)
-                ## result1 <- bound(env = modelEnv,
-                ##                  sset = sset,
-                ##                  g0 = gstar0,
-                ##                  g1 = gstar1,
-                ##                  soft = soft,
-                ##                  qp = qp.switch,
-                ##                  criterion.tol = criterion.tol,
-                ##                  solver = solver,
-                ##                  solver.options = solver.options.bounds,
-                ##                  noisy = noisy,
-                ##                  smallreturnlist = smallreturnlist,
-                ##                  rescale = rescale,
-                ##                  debug = debug)
                 result <- result1
             }
             if (tmp.rc == 2) {
@@ -1877,11 +1864,30 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
         }
     }
     ## Clean up status codes
-    status.codes <- c(criterion = minobseq$status,
-                      min = result$minstatus,
-                      max = result$maxstatus)
-    result[['minstatus']] <- statusString(result[['minstatus']], solver)
-    result[['maxstatus']] <- statusString(result[['maxstatus']], solver)
+    if (!cho.russell) {
+        status.codes <- list(criterion = minobseq$status,
+                             min = result$minstatus,
+                             max = result$maxstatus)
+        result[['minstatus']] <- statusString(result[['minstatus']], solver)
+        result[['maxstatus']] <- statusString(result[['maxstatus']], solver)
+        runtime <- c(criterion = minobseq$runtime,
+                     min = result$minruntime,
+                     max = result$maxruntime)
+    } else {
+        status.codes <- list(criterion = c(minobseq$status, minobseq$status),
+                             min = c(result1$minstatus, result2$minstatus),
+                             max = c(result1$maxstatus, result2$maxstatus))
+        result1[['minstatus']] <- statusString(result1[['minstatus']], solver)
+        result1[['maxstatus']] <- statusString(result1[['maxstatus']], solver)
+        result2[['minstatus']] <- statusString(result2[['minstatus']], solver)
+        result2[['maxstatus']] <- statusString(result2[['maxstatus']], solver)
+        ## Combine the results
+        runtime <- rbind(c(minobseq$runtime, minobseq$runtime),
+                         c(result1$minruntime, result2$minruntime),
+                         c(result1$maxruntime, result2$maxruntime))
+        colnames(runtime) <- c("+per", "-per")
+        rownames(runtime) <- c("criterion", "min", "max")
+    }
     minobseq$status <- statusString(minobseq$status, solver)
     ## Return output
     output <- list(max = result$max,
@@ -1894,9 +1900,7 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                    audit.criterion = minobseq$obj,
                    audit.criterion.status = minobseq$status,
                    status.codes = status.codes,
-                   runtime = c(criterion = minobseq$runtime,
-                               min = result$minruntime,
-                               max = result$maxruntime))
+                   runtime = runtime)
     if (qp.switch) {
         output$audit.criterion <- minCriterion
         output$audit.criterion.raw <- minobseq$obj
@@ -1906,6 +1910,10 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
     }
     if (cho.russell) {
         output$cr.inputs = cr.env$grid
+        output$max <- c("+per" = result1$max, "-per" = result2$max)
+        output$min <- c("+per" = result1$min, "-per" = result2$min)
+        output$result <- list("pos.per" = result1,
+                              "neg.per" = result2)
     }
     return(output)
 }

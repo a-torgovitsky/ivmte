@@ -455,7 +455,9 @@ lpSetupSolver <- function(env, solver) {
 #' @export
 lpSetupCriterionBoot <- function(env, sset, orig.sset,
                                  orig.criterion,
-                                 criterion.tol = 0, setup = TRUE) {
+                                 criterion.tol = 0, setup = TRUE,
+                                 cho.russell = FALSE,
+                                 cr.env, cr.epsilon, cr.subtract = FALSE) {
     if (setup) {
         sn  <- length(sset)
         gn0 <- length(sset$s1$g0)

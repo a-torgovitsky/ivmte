@@ -893,7 +893,6 @@ ivmte <- function(data, target, late.from, late.to, late.X,
         ## Make sure the `soft' argument is only used for a direct
         ## regression.
         if (hasArg(ivlike) && !is.null(ivlike) && hasArg(soft)) {
-            print("Do you want to allow cho and russell to be applied to iv-like cases?")
             warning(gsub("\\s+", " ",
                          "If the 'ivlike' argument is passed, then the
                           estimation procedure uses a moment-matching approach
@@ -4472,31 +4471,23 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
         }
     }
     if (noisy) {
-        cat("Bounds on the target parameter: [",
-            fmtResult(audit$min), ", ", fmtResult(audit$max), "]\n", sep = "")
-        if (soft) {
+        if (!cho.russell) {
+            cat("Bounds on the target parameter: [",
+                fmtResult(audit$min), ", ", fmtResult(audit$max), "]\n", sep = "")
+            if (soft) {
+                cat("Minimum criterion: ", fmtResult(audit$audit.criterion), "\n",
+                    sep = "")
+            }
+        } else {
+            cat("Bounds on the target parameter:\n")
+            cat("    Pos. perturbation [", fmtResult(audit$min[1]), ", ",
+                fmtResult(audit$max[1]), "]\n", sep = "")
+            cat("    Neg. perturbation [", fmtResult(audit$min[2]), ", ",
+                fmtResult(audit$max[2]), "]\n", sep = "")
             cat("Minimum criterion: ", fmtResult(audit$audit.criterion), "\n",
                 sep = "")
         }
         cat("\n")
-        ## if (any(audit$result$modelstats[, 3] > 6)) {
-        ##     bMessage <- "The following sets of coefficients defining the
-        ##             LP problem exhibit ranges exceeding 6 orders of magnitude: "
-        ##     if (audit$result$modelstats[1, 3] > 6) {
-        ##         bMessage <- paste(bMessage, "constraint matrix")
-        ##     }
-        ##     if (audit$result$modelstats[2, 3] > 6) {
-        ##         bMessage <- paste(bMessage, "RHS vector (IV-like coefficients)")
-        ##     }
-        ##     if (audit$result$modelstats[3, 3] > 6) {
-        ##         bMessage <- paste(bMessage, "objective vector (gamma moments)")
-        ##     }
-        ##     bMessage <- paste0(bMessage, ". Large ranges in the coefficients
-        ##                                  increase computational burden, and can
-        ##                                  potentially lead to infeasibility.")
-        ##     warning(gsub("\\s+", " ", bMessage),
-        ##             call. = FALSE, immediate. = TRUE)
-        ## }
     }
     ## Provide warnings if criterion minmization is suboptimal.
     messageUnb <- gsub("\\s+", " ",
@@ -4517,7 +4508,7 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
                            can also be passed through the argument
                            'solver.options'.\n")
     bWarn <- NULL
-    if (audit$status.codes[1] == 6) {
+    if (6 %in% audit$status.codes[[1]]) {
         bWarn <-
             paste(bWarn,
                   gsub("\\s+", " ",
@@ -4527,7 +4518,7 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
                                solution is returned.')))
         bWarn <- paste(bWarn, messageSub)
     }
-    if (audit$status.codes[1] == 7) {
+    if (7 %in% audit$status.codes[[1]]) {
         bWarn <-
             paste(bWarn,
                   gsub("\\s+", " ",
@@ -4537,7 +4528,7 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
                                   rescaling.')))
         bWarn <- paste(bWarn, messageOptInf)
     }
-    if (audit$status.codes[1] == 8) {
+    if (8 %in% audit$status.codes[[1]]) {
         bWarn <-
             paste(bWarn,
                   gsub("\\s+", " ",
@@ -4548,7 +4539,7 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
                                   but did not provide a status.")))
         bWarn <- paste(bWarn, messageOptInf)
     }
-    if (audit$status.codes[1] == 10) {
+    if (10 %in% audit$status.codes[[1]]) {
         bWarn <-
             paste(bWarn,
                   gsub("\\s+", " ",
@@ -4566,35 +4557,35 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
     for (type in c(2, 3)) {
         if (type == 2) tmpType <- 'minimization'
         if (type == 3) tmpType <- 'maximization'
-        if (audit$status.codes[type] == 2) {
+        if (2 %in% audit$status.codes[[type]]) {
             bWarn <-
                 paste(bWarn,
                       gsub("\\s+", " ",
                            paste('The',  tmpType, 'problem is
                                  infeasible.')))
         }
-        if (audit$status.codes[type] == 3) {
+        if (3 %in% audit$status.codes[[type]]) {
             bWarn <-
                 paste(bWarn,
                       gsub("\\s+", " ",
                            paste('The',  tmpType, 'problem is
                                  infeasible or unbounded.')))
         }
-        if (audit$status.codes[type] == 4) {
+        if (4 %in% audit$status.codes[[type]]) {
             bWarn <-
                 paste(bWarn,
                       gsub("\\s+", " ",
                            paste('The',  tmpType, 'problem is
                                  unbounded.')))
         }
-        if (audit$status.codes[type] == 5) {
+        if (5 %in% audit$status.codes[[type]]) {
             bWarn <-
                 paste(bWarn,
                       gsub("\\s+", " ",
                            paste('The',  tmpType, 'problem resulted
                                  in a numerical error.')))
         }
-        if (audit$status.codes[type] == 6) {
+        if (6 %in% audit$status.codes[[type]]) {
             bWarn <-
                 paste(bWarn,
                       gsub("\\s+", " ",
@@ -4603,7 +4594,7 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
                                tmpType, 'problem, so a suboptimal
                                solution is returned.')))
         }
-        if (audit$status.codes[type] == 7) {
+        if (7 %in% audit$status.codes[[type]]) {
             bWarn <-
                 paste(bWarn,
                       gsub("\\s+", " ",
@@ -4611,7 +4602,7 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
                                  tmpType, 'problem is optimal,
                                      but infeasible after rescaling.')))
         }
-        if (audit$status.codes[type] == 8) {
+        if (8 %in% audit$status.codes[[type]]) {
             bWarn <-
                 paste(bWarn,
                       gsub("\\s+", " ",
@@ -4619,7 +4610,7 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
                                           status (e.g. 'OPTIMAL') to the",
                                  tmpType, 'problem.')))
         }
-        if (audit$status.codes[type] == 10) {
+        if (10 %in% audit$status.codes[[type]]) {
             bWarn <-
                 paste(bWarn,
                       gsub("\\s+", " ",
@@ -4628,7 +4619,7 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
                                          iteration limit was reached.')))
         }
         bWarnTypes <- c(bWarnTypes,
-                        audit$status.codes[type])
+                        audit$status.codes[[type]])
     }
     bWarnTypes <- sort(unique(bWarnTypes))
     for (wt in bWarnTypes) {
@@ -4648,21 +4639,35 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
     if (solver == "lpsolveapi") solver <- "lp_solve ('lpSolveAPI')"
     if (solver == "cplexapi") solver <- "CPLEX ('cplexAPI')"
     if (solver == "rmosek") solver <- "MOSEK ('Rmosek')"
+    if (!cho.russell) {
+        tmp.gstar.coef = list(min.g0 = audit$result$ming0,
+                              max.g0 = audit$result$maxg0,
+                              min.g1 = audit$result$ming1,
+                              max.g1 = audit$result$maxg1,
+                              criterion.g0 = audit$criterion$g0,
+                              criterion.g1 = audit$criterion$g1)
+        tmp.bounds <- c(lower = audit$min,
+                        upper = audit$max)
+    } else {
+        tmp.gstar.coef = list(min.g0 = audit$result$pos.per$ming0,
+                              max.g0 = audit$result$pos.per$maxg0,
+                              min.g1 = audit$result$pos.per$ming1,
+                              max.g1 = audit$result$pos.per$maxg1,
+                              criterion.g0 = audit$criterion$g0,
+                              criterion.g1 = audit$criterion$g1)
+        tmp.bounds <- cbind(audit$min, audit$max)
+        colnames(tmp.bounds) <- c("min", "max")
+        rownames(tmp.bounds) <- c("+per", "-per")
+    }
     if (!smallreturnlist) {
         output <- list(gstar = list(g0 = gstar0,
                                     g1 = gstar1,
                                  n = targetGammas$n),
                        gstar.weights = list(w0 = targetGammas$w0,
                                             w1 = targetGammas$w1),
-                       gstar.coef = list(min.g0 = audit$result$ming0,
-                                         max.g0 = audit$result$maxg0,
-                                         min.g1 = audit$result$ming1,
-                                         max.g1 = audit$result$maxg1,
-                                         criterion.g0 = audit$criterion$g0,
-                                         criterion.g1 = audit$criterion$g1),
+                       gstar.coef = tmp.gstar.coef,
                        propensity = pmodel,
-                       bounds = c(lower = audit$min,
-                                  upper = audit$max),
+                       bounds = tmp.bounds,
                        result =  audit$result,
                        runtime = audit$runtime,
                        solver = solver,
@@ -4695,14 +4700,8 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
         }
         output <- list(gstar = list(g0 = gstar0,
                                     g1 = gstar1),
-                       gstar.coef = list(min.g0 = audit$ming0,
-                                         max.g0 = audit$maxg0,
-                                         min.g1 = audit$ming1,
-                                         max.g1 = audit$maxg1,
-                                         criterion.g0 = audit$criterion$g0,
-                                         criterion.g1 = audit$criterion$g1),
-                       bounds = c(lower = audit$min,
-                                  upper = audit$max),
+                       gstar.coef = tmp.gstar.coef,
+                       bounds = tmp.bounds,
                        runtime = audit$runtime,
                        solver = solver,
                        moments = nIndepMoments,
