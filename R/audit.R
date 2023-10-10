@@ -197,7 +197,7 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                   solver.options.criterion, solver.options.bounds,
                   rescale = FALSE,
                   cho.russell = FALSE, cr.epsilon = 10e-3,
-                  cr.inputs,
+                  cr.perturbations,
                   smallreturnlist = FALSE,
                   noisy = TRUE, debug = FALSE) {
     call  <- match.call()
@@ -627,7 +627,7 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
         }
         if (cho.russell) {
             cr.env <- new.env()
-            if (!hasArg(cr.inputs)) {
+            if (!hasArg(cr.perturbations)) {
                 cr.env$grid <- gengrid.alt(xsupport = support,
                                            usupport = a_uvec,
                                            uname = uname,
@@ -646,7 +646,7 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                                            mte.inc = mte.inc,
                                            mte.dec = mte.dec)
             } else {
-                cr.env$grid <- cr.inputs
+                cr.env$grid <- cr.perturbations
             }
         } else {
             cr.env <- NULL
@@ -1909,7 +1909,7 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
         output$spectest = minobseqTest$obj
     }
     if (cho.russell) {
-        output$cr.inputs = cr.env$grid
+        output$cr.perturbations <- cr.env$grid
         output$max <- c("+per" = result1$max, "-per" = result2$max)
         output$min <- c("+per" = result1$min, "-per" = result2$min)
         output$result <- list("pos.per" = result1,

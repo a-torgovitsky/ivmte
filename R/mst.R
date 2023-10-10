@@ -1058,6 +1058,7 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                            or set 'cho.russell' to FALSE."),
                      call. = FALSE)
             }
+            point <- FALSE
             if (direct.switch && qp.switch) {
                 stop(gsub("\\s+", " ",
                           "'cho.russell' can only be TRUE if the partially
@@ -1483,6 +1484,14 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                        than or equal to 2."), call. = FALSE)
         }
         if (hasArg(bootstraps.m)) {
+            if (cho.russell) {
+                warning(gsub("\\s+", " ",
+                             "If 'cho.russell' is TRUE, then
+                              'bootstrap.m' is automatically set equal to
+                              the number of observations in the data."),
+                        call. = FALSE)
+                bootstraps.m <- nrow(data)
+            }
             if (bootstraps.m < 0 | bootstraps.m %% 1 != 0) {
                 stop(gsub("\\s+", " ",
                           "'bootstraps.m' must be an integer greater than or
@@ -2394,7 +2403,10 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                         dropargs = c("point"),
                         newargs = list(point = TRUE))
         }
-        ## Estimate bounds
+
+        ## ---------------------------------------------------------------------
+        ## Bounds estimate case
+        ## ---------------------------------------------------------------------
         ##
         ## If 'point' is not passed, then determine whether the model
         ## is point identified.
@@ -2402,7 +2414,6 @@ ivmte <- function(data, target, late.from, late.to, late.X,
         if ('point.estimate' %in% names(origEstimate))  point <- TRUE
         if (!'point.estimate' %in% names(origEstimate)) point <- FALSE
         if (direct.switch) specification.test <- FALSE
-        ## Now estimate the bounds.
         if (point == FALSE) {
             ## Estimate bounds without resampling
             if (bootstraps == 0) {
@@ -2421,10 +2432,19 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                                    uvec = origEstimate$audit.grid$audit.u)
                 if (is.null(audit.grid$support)) audit.grid$noX <- TRUE
                 if (!is.null(audit.grid$support)) audit.grid$noX <- FALSE
+                ## Extract Cho and Russell perturbations
+                if (!is.null(origEstimate$cr.perturbations)) {
+                    cr.perturbations <- origEstimate$cr.perturbations
+                }
                 ## Estimate bounds with resampling
                 boundEstimates <- NULL
                 propEstimates <- NULL
-                b <- 1
+                ## b <- 1
+                if (!cho.russell) {
+                    tmp.bstart <- 1
+                } else {
+                    tmp.bstart <- 0
+                }
                 bootCriterion <- NULL
                 bootFailN <- 0
                 bootFailNote <- ""
@@ -2451,17 +2471,23 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                          call. = FALSE)
                 }
                 ## The following function is what will be run for the
-                ## bootstrap. This can be used by the 'future.apply'
-                ## package.
+                ## bootstrap when the treatment effect is PARTIALLY
+                ## identified (the counterpart to the POINT identified
+                ## treatment effect is above).. This can be used by
+                ## the 'future.apply' package.
                 tmpBootCall <- function(bootIndex, noisy = FALSE) {
                     if (noisy) cat("Bootstrap iteration ", bootIndex,
                                    "...\n", sep = "")
                     output <- list(bootFailN = 0)
                     tmpSuccess <- FALSE
                     while(!tmpSuccess) {
-                        bootIDs  <- sample(x = seq(1, nrow(data)),
-                                           size = bootstraps.m,
-                                           replace = bootstraps.replace)
+                        if (bootIndex > 0) {
+                            bootIDs  <- sample(x = seq(1, nrow(data)),
+                                               size = bootstraps.m,
+                                               replace = bootstraps.replace)
+                        } else {
+                            bootIDs <- seq(1, nrow(data))
+                        }
                         bdata <- data[bootIDs, ]
                         bootCall <-
                             modcall(estimateCall,
@@ -2477,6 +2503,12 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                                                    count.moments = FALSE,
                                                    point = FALSE,
                                                    bootstrap = TRUE))
+                        if (cho.russell) {
+                            bootCall <-
+                                modcall(bootCall,
+                                        newargs = list(cr.perturbations =
+                                                           cr.perturbations))
+                        }
                         bootEstimate <- try(eval(bootCall), silent = TRUE)
                         if (is.list(bootEstimate) &&
                             "bounds" %in% names(bootEstimate)) {
@@ -2511,12 +2543,25 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                                 cat("    Minimum criterion: ",
                                     fmtResult(bootEstimate$audit.criterion),
                                     "\n", sep = "")
-                                cat("    Bounds: ",
-                                    paste0("[",
-                                           fmtResult(bootEstimate$bounds[1]),
-                                           ", ",
-                                           fmtResult(bootEstimate$bounds[2]),
-                                           "]"), "\n\n", sep = "")
+                                if (!cho.russell) {
+                                    cat("    Bounds: ",
+                                        paste0("[",
+                                               fmtResult(bootEstimate$bounds[1]),
+                                               ", ",
+                                               fmtResult(bootEstimate$bounds[2]),
+                                               "]"), "\n\n", sep = "")
+                                } else {
+                                    cat("    Bounds (+ pert.) [",
+                                        fmtResult(bootEstimate$bounds[1, 1]),
+                                        ", ",
+                                        fmtResult(bootEstimate$bounds[1, 2]),
+                                        "]\n", sep = "")
+                                    cat("    Bounds (- pert.) [",
+                                        fmtResult(bootEstimate$bounds[2, 1]),
+                                        ", ",
+                                        fmtResult(bootEstimate$bounds[2, 2]),
+                                        "]\n\n", sep = "")
+                                }
                             }
                         } else {
                             if (noisy) cat("    Error, resampling...\n",
@@ -2552,11 +2597,11 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                 ## into the session, then the bootstrap will be
                 ## performed sequentially.
                 if (!tmpFuture) {
-                    for (b in 1:bootstraps) {
+                    for (b in tmp.bstart:bootstraps) {
                         bootEstimate <- tmpBootCall(bootIndex = b,
                                                     noisy = noisy)
                         boundEstimates  <- rbind(boundEstimates,
-                                                 bootEstimate$bound)
+                                                 c(bootEstimate$bound))
                         if (specification.test) {
                             bootCriterion <- c(bootCriterion,
                                                bootEstimate$specification.test)
@@ -2568,7 +2613,11 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                         tmp.propEstimates <-
                             data.frame(var = names(bootEstimate$propensity.coef),
                                        y = bootEstimate$propensity.coef)
-                        colnames(tmp.propEstimates)[2] <- paste0('b', b)
+                        if (nrow(tmp.propEstimates) > 0) {
+                            colnames(tmp.propEstimates)[2] <- paste0('b', b)
+                        } else {
+                            tmp.propEstimates <- NULL
+                        }
                         if (is.null(propEstimates)) {
                             propEstimates <- tmp.propEstimates
                         } else {
@@ -2586,14 +2635,14 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                     ## 'future.apply' is available, then perform
                     ## bootstrap in parallel
                     bootEstimate <-
-                        future.apply::future_lapply(X = 1:bootstraps,
+                        future.apply::future_lapply(X = tmp.bstart:bootstraps,
                                                     FUN = tmpBootCall,
                                                     future.seed = TRUE,
                                                     noisy = noisy)
                     boundEstimates <- Reduce(rbind,
                                              lapply(bootEstimate,
                                                     function(x) {
-                                                        x$bound
+                                                        c(x$bound)
                                                     }))
                     if (specification.test) {
                         bootCriterion <- Reduce(rbind,
@@ -2609,7 +2658,7 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                                                            x$audit.criterion
                                                        }))
                     }
-                    for (b in 1:bootstraps) {
+                    for (b in tmp.bstart:bootstraps) {
                         tmp.propEstimates <-
                             data.frame(var = names(bootEstimate[[b]]$propensity.coef),
                                        y = bootEstimate[[b]]$propensity.coef)
@@ -2649,17 +2698,32 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                                 call. = FALSE)
                     }
                 }
-                rownames(boundEstimates) <- seq(bootstraps)
-                colnames(boundEstimates) <- c('lower', 'upper')
+                rownames(boundEstimates) <- seq(tmp.bstart, bootstraps)
+                if (!cho.russell) {
+                    colnames(boundEstimates) <- c('lower', 'upper')
+                } else {
+                    colnames(boundEstimates) <- c("min.pos", "min.neg",
+                                                  "max.pos", "max.neg")
+                }
                 cat("--------------------------------------------------\n")
                 cat("Results", "\n")
                 cat("--------------------------------------------------\n")
                 cat("\n")
                 ## Some output must be returned, even if noisy = FALSE
-                cat("Bounds on the target parameter: [",
-                    fmtResult(origEstimate$bounds[1]), ", ",
-                    fmtResult(origEstimate$bounds[2]), "]\n",
-                    sep = "")
+                if (!cho.russell) {
+                    cat("Bounds on the target parameter: [",
+                        fmtResult(origEstimate$bounds[1]), ", ",
+                        fmtResult(origEstimate$bounds[2]), "]\n",
+                        sep = "")
+                } else {
+                    cat("Bounds on the target parameter:\n")
+                    cat("    Pos. perturbation [",
+                        fmtResult(origEstimate$bounds[1, 1]), ", ",
+                        fmtResult(origEstimate$bounds[1, 2]), "]\n", sep = "")
+                    cat("    Neg. perturbation [",
+                        fmtResult(origEstimate$bounds[2, 1]), ", ",
+                        fmtResult(origEstimate$bounds[2, 2]), "]\n", sep = "")
+                }
                 if (soft) {
                     cat("Minimum criterion: ",
                         fmtResult(origEstimate$audit.criterion), "\n",
@@ -2686,14 +2750,19 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                     }
                 }
                 ## Obtain standard errors of bounds
-                bootSE <- apply(boundEstimates, 2, sd)
+                if (!cho.russell) {
+                    bootSE <- apply(boundEstimates, 2, sd)
+                } else {
+                    bootSE <- NULL
+                }
                 ## Construct confidence intervals for bounds
                 ci <- boundCI(bounds = origEstimate$bounds,
                               bounds.resamples = boundEstimates,
                               n = nrow(data),
                               m = bootstraps.m,
                               levels = levels,
-                              type = "both")
+                              type = "both",
+                              cho.russell = cho.russell)
                 ## Construct confidence intervals for propensity scores
                 if (!is.null(propEstimates)) {
                     propensity.ci <- list()
@@ -2715,17 +2784,19 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                         pLower <- (1 - level) / 2
                         pUpper <- 1 - (1 - level) / 2
                         probVec <- c(pLower, pUpper)
-                        tmpPropCi1 <- rbind(apply(propEstimates[, 2:ncol(propEstimates)],
-                                                  1, quantile,
-                                                  probs = probVec,
-                                                  type = 1,
-                                                  na.rm = TRUE),
-                                            bootstraps = propN)
-                        tmpPropCi2 <- rbind(sweep(x = tcrossprod(c(qnorm(pLower),
-                                                                   qnorm(pUpper)),
-                                                                 propSE), MARGIN = 2,
-                                                  propCoef, FUN = "+"),
-                                            bootstraps = propN)
+                        tmpPropCi1 <- rbind(apply(
+                            propEstimates[, 2:ncol(propEstimates)],
+                            1, quantile,
+                            probs = probVec,
+                            type = 1,
+                            na.rm = TRUE),
+                            bootstraps = propN)
+                        tmpPropCi2 <- rbind(
+                            sweep(x = tcrossprod(c(qnorm(pLower),
+                                                   qnorm(pUpper)),
+                                                 propSE), MARGIN = 2,
+                                  propCoef, FUN = "+"),
+                            bootstraps = propN)
                         colnames(tmpPropCi2) <- colnames(tmpPropCi1)
                         rownames(tmpPropCi2) <- rownames(tmpPropCi1)
                         propensity.ci$nonparametric[[paste0("level",
@@ -2736,39 +2807,60 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                     }
                 }
                 ## Obtain p-value
-                pvalue <- c(boundPvalue(bounds = origEstimate$bounds,
-                                        bounds.resamples = boundEstimates,
-                                        n = nrow(data),
-                                        m = bootstraps.m,
-                                        type = "backward"),
-                            boundPvalue(bounds = origEstimate$bounds,
-                                        bounds.resamples = boundEstimates,
-                                        n = nrow(data),
-                                        m = bootstraps.m,
-                                        type = "forward"))
-                names(pvalue) <- c("backward", "forward")
-                if (ci.type == "both")  {
-                    ciTypes <- c("backward", "forward")
+                if (!cho.russell) {
+                    ## p-values should only be calculated if Cho and
+                    ## Russell approach is not used.
+                    pvalue <- c(boundPvalue(bounds = origEstimate$bounds,
+                                            bounds.resamples = boundEstimates,
+                                            n = nrow(data),
+                                            m = bootstraps.m,
+                                            type = "backward"),
+                                boundPvalue(bounds = origEstimate$bounds,
+                                            bounds.resamples = boundEstimates,
+                                            n = nrow(data),
+                                            m = bootstraps.m,
+                                            type = "forward"))
+                    names(pvalue) <- c("backward", "forward")
+                    if (ci.type == "both")  {
+                        ciTypes <- c("backward", "forward")
+                    } else {
+                        ciTypes <- ci.type
+                    }
+                    ciN <- 1
+                    for (i in ciTypes) {
+                        cat("\nBootstrapped confidence intervals (",
+                            i, "):\n", sep = "")
+                        for (j in 1:length(levels)) {
+                            cistr <- paste0("[",
+                                            fmtResult(ci[[i]][j, 1]),
+                                            ", ",
+                                            fmtResult(ci[[i]][j, 2]),
+                                            "]")
+                            cat("    ",
+                                levels[j] * 100,
+                                "%: ",
+                                cistr, "\n", sep = "")
+                        }
+                        cat("p-value: ", fmtResult(pvalue[ciN]), "\n", sep = "")
+                        ciN <- ciN + 1
+                    }
                 } else {
-                    ciTypes <- ci.type
-                }
-                ciN <- 1
-                for (i in ciTypes) {
-                    cat("\nBootstrapped confidence intervals (",
-                        i, "):\n", sep = "")
+                    ## If Cho and Russell approach used, then don't
+                    ## calculate p-values and only show confidence
+                    ## intervals.
+                    pvalue <- NULL
+                    cat("\nBootstrapped confidence intervals:\n")
                     for (j in 1:length(levels)) {
                         cistr <- paste0("[",
-                                        fmtResult(ci[[i]][j, 1]),
+                                        fmtResult(ci[j, 1]),
                                         ", ",
-                                        fmtResult(ci[[i]][j, 2]),
+                                        fmtResult(ci[j, 2]),
                                         "]")
                         cat("    ",
                             levels[j] * 100,
                             "%: ",
                             cistr, "\n", sep = "")
                     }
-                    cat("p-value: ", fmtResult(pvalue[ciN]), "\n", sep = "")
-                    ciN <- ciN + 1
                 }
                 ## Obtain specification test
                 if (specification.test) {
@@ -2795,6 +2887,10 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                                  p.value = pvalue,
                                  bootstraps = bootstraps,
                                  bootstraps.failed = bootFailN))
+                if (cho.russell) {
+                    output <- output[-which(names(output) == "bounds.se")]
+                    output <- output[-which(names(output) == "p.value")]
+                }
                 if (specification.test) {
                     output$specification.p.value <- criterionPValue
                 }
@@ -2811,6 +2907,10 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                 class(output) <- "ivmte"
             }
         }
+
+        ## --------------------------------------------------------------------
+        ## Point estimate case
+        ## --------------------------------------------------------------------
         ## Point estimate without resampling
         if (point == TRUE & bootstraps == 0) {
             output <- origEstimate
@@ -2844,8 +2944,10 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                            boolean expressions) in the bootstrap sample.
                            Additional bootstrap samples will be drawn.")
             ## The following function is what will be run for the
-            ## bootstrap. This can be used by the 'future.apply'
-            ## package.
+            ## bootstrap when the treatment effect is POINT identified
+            ## (the counterpart to the PARTIALLY identified treatment
+            ## effect is above). This can be used by the
+            ## 'future.apply' package.
             tmpBootCall <- function(bootIndex, noisy = FALSE) {
                 if (noisy) cat("Bootstrap iteration ", bootIndex,
                                "...\n", sep = "")
@@ -2853,6 +2955,13 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                                missingFactors = 0)
                 tmpSuccess <- FALSE
                 while(!tmpSuccess) {
+                    if (bootIndex > 0) {
+                        bootIDs  <- sample(x = seq(1, nrow(data)),
+                                           size = bootstraps.m,
+                                           replace = bootstraps.replace)
+                    } else {
+                        bootIDs <- seq(1, nrow(data))
+                    }
                     bootIDs  <- sample(x = seq(1, nrow(data)),
                                        size = bootstraps.m,
                                        replace = bootstraps.replace)
@@ -3341,6 +3450,9 @@ ivmte <- function(data, target, late.from, late.to, late.X,
 #'     'backward' to construct the backward confidence interval for
 #'     the treatment effect bounds. Set to 'both' to construct both
 #'     types of confidence intervals.
+#' @param cho.russell boolean. Set to \code{TRUE} if the inference
+#'     procedure by Cho and Russell (2023) for set identified
+#'     parameters defined by linear programs.
 #' @return if \code{type} is 'forward' or 'backward', then the
 #'     corresponding type of confidence interval for each level is
 #'     returned. The output is in the form of a matrix, with each row
@@ -3348,46 +3460,87 @@ ivmte <- function(data, target, late.from, late.to, late.X,
 #'     is returned. One element of the list is the matrix of backward
 #'     confidence intervals, and the other element of the list is the
 #'     matrix of forward confidence intervals.
-boundCI <- function(bounds, bounds.resamples, n, m, levels, type) {
-    if (type == "both") output <- list()
-    ## Rescale and center bounds
-    boundLBmod <- sqrt(m) *
-        (bounds.resamples[, 1] - bounds[1])
-    boundUBmod <- sqrt(m) *
-        (bounds.resamples[, 2] - bounds[2])
-    ## Construct backward confidence interval
-    if (type %in% c('backward', 'both')) {
-        backwardCI <- cbind(bounds[1] +
-                            (1 / sqrt(n)) *
-                            quantile(boundLBmod,
-                                     0.5 * (1 - levels),
-                                     type = 1),
-                            bounds[2] +
-                            (1 / sqrt(n)) *
-                            quantile(boundUBmod,
-                                     0.5 * (1 + levels),
-                                     type = 1))
-        colnames(backwardCI) <- c("lb.backward", "ub.backward")
-        rownames(backwardCI) <- levels
-        if (type == "both") output$backward <- backwardCI
-        if (type == "backward") output <- backwardCI
-    }
-    ## Construct forward confidence interval
-    if (type %in% c('forward', 'both')) {
-        forwardCI <- cbind(bounds[1] -
-                           (1 / sqrt(n)) *
-                           quantile(boundLBmod,
-                                    0.5 * (1 + levels),
-                                    type = 1),
-                           bounds[2] -
-                           (1 / sqrt(n)) *
-                           quantile(boundUBmod,
-                                    0.5 * (1 - levels),
-                                    type = 1))
-        colnames(forwardCI) <- c("lb.forward", "ub.forward")
-        rownames(forwardCI) <- levels
-        if (type == "both") output$forward <- forwardCI
-        if (type == "forward") output <- forwardCI
+boundCI <- function(bounds, bounds.resamples, n, m, levels, type,
+                    cho.russell = FALSE) {
+    if (!cho.russell) {
+        if (type == "both") output <- list()
+        ## Rescale and center bounds
+        boundLBmod <- sqrt(m) *
+            (bounds.resamples[, 1] - bounds[1])
+        boundUBmod <- sqrt(m) *
+            (bounds.resamples[, 2] - bounds[2])
+        ## Construct backward confidence interval
+        if (type %in% c('backward', 'both')) {
+            backwardCI <- cbind(bounds[1] +
+                                (1 / sqrt(n)) *
+                                quantile(boundLBmod,
+                                         0.5 * (1 - levels),
+                                         type = 1),
+                                bounds[2] +
+                                (1 / sqrt(n)) *
+                                quantile(boundUBmod,
+                                         0.5 * (1 + levels),
+                                         type = 1))
+            colnames(backwardCI) <- c("lb.backward", "ub.backward")
+            rownames(backwardCI) <- levels
+            if (type == "both") output$backward <- backwardCI
+            if (type == "backward") output <- backwardCI
+        }
+        ## Construct forward confidence interval
+        if (type %in% c('forward', 'both')) {
+            forwardCI <- cbind(bounds[1] -
+                               (1 / sqrt(n)) *
+                               quantile(boundLBmod,
+                                        0.5 * (1 + levels),
+                                        type = 1),
+                               bounds[2] -
+                               (1 / sqrt(n)) *
+                               quantile(boundUBmod,
+                                        0.5 * (1 - levels),
+                                        type = 1))
+            colnames(forwardCI) <- c("lb.forward", "ub.forward")
+            rownames(forwardCI) <- levels
+            if (type == "both") output$forward <- forwardCI
+            if (type == "forward") output <- forwardCI
+        }
+    } else {
+        saveRDS(bounds.resamples, file = "resamples.Rds")
+        ## Exract baseline estimate
+        lb0.pos <- bounds.resamples[1, 1]
+        lb0.neg <- bounds.resamples[1, 2]
+        ub0.pos <- bounds.resamples[1, 3]
+        ub0.neg <- bounds.resamples[1, 4]
+        ## Shift and scale bootstrap estimates
+        bounds.resamples <- bounds.resamples[-1, ]
+        bounds.resamples[, 1] <- sqrt(n) * (bounds.resamples[, 1] - lb0.pos)
+        bounds.resamples[, 2] <- sqrt(n) * (bounds.resamples[, 2] - lb0.neg)
+        bounds.resamples[, 3] <- -sqrt(n) * (bounds.resamples[, 3] - ub0.pos)
+        bounds.resamples[, 4] <- -sqrt(n) * (bounds.resamples[, 4] - ub0.neg)
+        ## Construct CI bounds
+        ci.lb <- sapply(X = 1 - levels,
+                        FUN = function(x) {
+                            min(lb0.neg, lb0.pos) - (1 / sqrt(n)) *
+                                max(quantile(bounds.resamples[, 1],
+                                             probs = 1 - x,
+                                             type = 1),
+                                    quantile(bounds.resamples[, 2],
+                                             probs = 1 - x,
+                                             type = 1))
+                        })
+        ci.ub <- sapply(X = 1 - levels,
+                        FUN = function(x) {
+                            max(ub0.neg, ub0.pos) + (1 / sqrt(n)) *
+                                max(quantile(bounds.resamples[, 3],
+                                             probs = 1 - x,
+                                             type = 1),
+                                    quantile(bounds.resamples[, 4],
+                                             probs = 1 - x,
+                                             type = 1))
+                        })
+        ci <- cbind(ci.lb, ci.ub)
+        colnames(ci) <- c("lb", "ub")
+        rownames(ci) <- levels
+        output <- ci
     }
     return(output)
 }
@@ -4729,6 +4882,9 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
     if (direct.switch) {
         output$moments <- NULL
     }
+    if (cho.russell) {
+        output$cr.perturbations <- audit$cr.perturbations
+    }
     return(output)
 }
 
@@ -5998,27 +6154,44 @@ print.ivmte <- function(x, ...) {
         cat("\n")
         warn.min <- NULL
         warn.max <- NULL
-        if (! x$result$minstatus %in% c("OPTIMAL (2)",
-                                        "CPX_STAT_OPTIMAL (1)",
-                                        "Optimal (0)",
-                                        "OPTIMAL")) {
-            warn.min <- paste0("Lower bound optimization status is ",
-                               x$result$minstatus, ".")
+        if (is.null(dim(x$bounds))) {
+            tmp.min.status <- x$result$minstatus
+            tmp.max.status <- x$result$maxstatus
+        } else {
+            tmp.min.status <- c(x$result$pos.per$minstatus,
+                                x$result$neg.per$minstatus)
+            tmp.max.status <- c(x$result$pos.per$maxstatus,
+                                x$result$neg.per$maxstatus)
         }
-        if (! x$result$maxstatus %in% c("OPTIMAL (2)",
+        if (! all(tmp.min.status %in% c("OPTIMAL (2)",
                                         "CPX_STAT_OPTIMAL (1)",
                                         "Optimal (0)",
-                                        "OPTIMAL")) {
+                                        "OPTIMAL"))) {
+            warn.min <- paste0("Lower bound optimization status is ",
+                               paste(tmp.min.status, collapse = ","), ".")
+        }
+        if (! all(tmp.max.status %in% c("OPTIMAL (2)",
+                                        "CPX_STAT_OPTIMAL (1)",
+                                        "Optimal (0)",
+                                        "OPTIMAL"))) {
             warn.max <- paste0("Upper bound optimization status is ",
-                               x$result$maxstatus, ".")
+                               paste(tmp.max.status, collapse = ","), ".")
         }
         if (!is.null(warn.min) | !is.null(warn.max)) {
             warning(gsub("\\s+", " ", paste(warn.min, warn.max)),
                     call. = FALSE, immediate. = FALSE)
         }
         ## Return bounds, audit cout, and minumum criterion
-        cat(sprintf("Bounds on the target parameter: [%s, %s]\n",
-                    fmtResult(x$bounds[1]), fmtResult(x$bounds[2])))
+        if (is.null(dim(x$bounds))) {
+            cat(sprintf("Bounds on the target parameter: [%s, %s]\n",
+                        fmtResult(x$bounds[1]), fmtResult(x$bounds[2])))
+        } else {
+            cat("Bounds on the target parameter:\n")
+            cat("    Pos. perturbation [", fmtResult(x$bounds[1, 1]), ", ",
+                fmtResult(x$bounds[1, 2]), "]\n", sep = "")
+            cat("    Neg. perturbation [", fmtResult(x$bounds[2, 1]), ", ",
+                fmtResult(x$bounds[2, 2]), "]\n", sep = "")
+        }
         if (!is.null(x$audit.grid$violations)) {
             cat(sprintf("Audit reached audit.max (%s)\n",
                         x$audit.count))
@@ -6053,28 +6226,44 @@ summary.ivmte <- function(object, ...) {
         cat("\n")
         warn.min <- NULL
         warn.max <- NULL
-        if (! object$result$minstatus %in% c("OPTIMAL (2)",
-                                             "CPX_STAT_OPTIMAL (1)",
-                                             "Optimal (0)",
-                                             "OPTIMAL")) {
-            warn.min <- paste0("Lower bound optimization status is ",
-                               object$result$minstatus, ".")
+        if (is.null(dim(object$bounds))) {
+            tmp.min.status <- object$result$minstatus
+            tmp.max.status <- object$result$maxstatus
+        } else {
+            tmp.min.status <- c(object$result$pos.per$minstatus,
+                                object$result$neg.per$minstatus)
+            tmp.max.status <- c(object$result$pos.per$maxstatus,
+                                object$result$neg.per$maxstatus)
         }
-        if (! object$result$maxstatus %in% c("OPTIMAL (2)",
-                                             "CPX_STAT_OPTIMAL (1)",
-                                             "Optimal (0)",
-                                             "OPTIMAL")) {
+        if (! all(tmp.min.status %in% c("OPTIMAL (2)",
+                                        "CPX_STAT_OPTIMAL (1)",
+                                        "Optimal (0)",
+                                        "OPTIMAL"))) {
+            warn.min <- paste0("Lower bound optimization status is ",
+                               paste(tmp.min.status, collapse = ","), ".")
+        }
+        if (! all(tmp.max.status %in% c("OPTIMAL (2)",
+                                        "CPX_STAT_OPTIMAL (1)",
+                                        "Optimal (0)",
+                                        "OPTIMAL"))) {
             warn.max <- paste0("Upper bound optimization status is ",
-                               object$result$maxstatus, ".")
+                               paste(tmp.max.status, collapse = ","), ".")
         }
         if (!is.null(warn.min) | !is.null(warn.max)) {
             warning(gsub("\\s+", " ", paste(warn.min, warn.max)),
                     call. = FALSE, immediate. = FALSE)
         }
         ## Return bounds, audit count, and minumum criterion
-        cat(sprintf("Bounds on the target parameter: [%s, %s]\n",
-                    fmtResult(object$bounds[1]),
-                    fmtResult(object$bounds[2])))
+        if (is.null(dim(object$bounds))) {
+            cat(sprintf("Bounds on the target parameter: [%s, %s]\n",
+                        fmtResult(object$bounds[1]), fmtResult(object$bounds[2])))
+        } else {
+            cat("Bounds on the target parameter:\n")
+            cat("    Pos. perturbation [", fmtResult(object$bounds[1, 1]), ", ",
+                fmtResult(object$bounds[1, 2]), "]\n", sep = "")
+            cat("    Neg. perturbation [", fmtResult(object$bounds[2, 1]), ", ",
+                fmtResult(object$bounds[2, 2]), "]\n", sep = "")
+        }
         if (!is.null(object$audit.grid$violations)) {
             cat(sprintf("Audit reached audit.max (%s)\n",
                         object$audit.count))

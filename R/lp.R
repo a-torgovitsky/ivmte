@@ -1024,12 +1024,12 @@ bound <- function(env, sset, g0, g1, soft = FALSE,
     solver <- tolower(solver)
     if (cho.russell) {
         ## Obtain Cho and Russell perturbations
-        if (is.null(cr.env$obj.per)) {
+        if (is.null(cr.env$grid$obj.per)) {
             tmp.per <- runif(n = env$model$gn0 + env$model$gn1,
                              min = 0, max = cr.epsilon)
-            cr.env$obj.per <- tmp.per
+            cr.env$grid$obj.per <- tmp.per
         } else {
-            tmp.per <- cr.env$obj.per
+            tmp.per <- cr.env$grid$obj.per
         }
     }
     ## Obtain lower and upper bounds
