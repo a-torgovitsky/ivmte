@@ -3739,7 +3739,7 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
                           initgrid.x, initgrid.u, audit.x, audit.u,
                           audit.add = 100, audit.max = 25, audit.tol,
                           audit.grid = NULL, direct, rescale = TRUE,
-                          cho.russell, cr.epsilon, cr.perturbations,
+                          cho.russell = FALSE, cr.epsilon, cr.perturbations,
                           point = FALSE, point.eyeweight = FALSE,
                           point.center = NULL, point.redundant = NULL,
                           bootstrap = FALSE, count.moments = TRUE,
@@ -4507,16 +4507,6 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
                         c(tmpErrMessage,
                           'resulted in numerical issues')
                 }
-                ## if (6 %in% audit$errorTypes) {
-                ##     tmpErrMessage <-
-                ##         c(tmpErrMessage,
-                ##           'suboptimal')
-                ## }
-                ## if (7 %in% audit$errorTypes) {
-                ##     tmpErrMessage <-
-                ##         c(tmpErrMessage,
-                ##           'optimal but infeasible after rescaling')
-                ## }
                 tmpErrMessage <- paste(tmpErrMessage, collapse = "; ")
                 cat(paste0("    Model ",
                            tmpErrMessage, ".\n"))
@@ -4532,13 +4522,6 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
                 audit$audit.criterion.status <- audit$audit.criterion.status
                 audit$status.min <- audit$status.min
                 audit$status.max <- audit$status.max
-                ## audit$audit.criterion.status <-
-                ##     statusString(audit$audit.criterion.status,
-                ##                  solver)
-                ## audit$status.min <- statusString(audit$status.min,
-                ##                                  solver)
-                ## audit$status.max <- statusString(audit$status.max,
-                ##                                  solver)
                 return(audit)
             }
             cat("\n    Restarting audit with new settings:\n")
@@ -4703,7 +4686,6 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
     }
     if (!is.null(bWarn)) warning(bWarn, call. = FALSE,
                                  immediate. = TRUE)
-
     ## Check status of bounds
     bWarn <- NULL
     bWarnTypes <- NULL

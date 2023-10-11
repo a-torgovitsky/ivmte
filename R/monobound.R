@@ -967,8 +967,8 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
         }
         ## Generate RHS
         if (is.null(cr.tol)) {
-            monoObjects$monotez <- c(monoObjects$monotez,
-                                     replicate(nrow(monoAte), 0))
+            tmp.monotez <- c(monoObjects$monotez,
+                             replicate(nrow(monoAte), 0))
         } else {
             tmp.monotez <- cr.tol[uMinIndex][!duplicatePos]
         }
@@ -1079,8 +1079,8 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
                 monoA$m0.inc.rhs <- monoList$mono0z.inc[violatePos]
                 rownames(monoA$m0.inc) <- names(monoA$m0.inc.rhs) <-
                     rep("m0.inc", nrow(monoA$m0.inc))
-                map <- c(map, monoList$monomap1.inc[violatePos])
-                umap <- c(umap, monoList$umap1.inc[violatePos, 2])
+                map <- c(map, monoList$monomap0.inc[violatePos])
+                umap <- c(umap, monoList$umap0.inc[violatePos, 2])
                 monoA0IncSeq <- seq(sum(violatePos))
             }
             monoList$monoA0.inc <- NULL
@@ -1111,8 +1111,8 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
                 monoA$m0.dec.rhs <- monoList$mono0z.dec[violatePos]
                 rownames(monoA$m0.dec) <- names(monoA$m0.dec.rhs) <-
                     rep("m0.dec", nrow(monoA$m0.dec))
-                map <- c(map, monoList$monomap1.dec[violatePos])
-                umap <- c(umap, monoList$umap1.dec[violatePos, 2])
+                map <- c(map, monoList$monomap0.dec[violatePos])
+                umap <- c(umap, monoList$umap0.dec[violatePos, 2])
                 monoA0DecSeq <- seq(sum(violatePos))
             }
             monoList$monoA0.dec <- NULL
@@ -1240,7 +1240,7 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
     }
     ## Impose checks on MTE being increasing
     monoAteIncSeq <- NULL
-    if (!is.null(monoList$monoAte)) {
+    if (!is.null(monoList$monoAte.inc)) {
         if (!audit) {
             monoA <- rbind(monoA, monoList$monoAte.inc)
             monoList$monoAte.inc <- NULL
@@ -1264,7 +1264,6 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
                 map <- c(map, monoList$monomapte.inc[violatePos])
                 umap <- c(umap, monoList$umapte.inc[violatePos, 2])
                 monoAteIncSeq <- seq(sum(violatePos))
-                monoA$mte.inc.rhs <- monoList$monotez[violatePos]
             }
             rm(mte.type)
             monoList$monoAte.inc <- NULL
@@ -1274,7 +1273,7 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
     }
     ## Impose checks on MTE being decreasing
     monoAteDecSeq <- NULL
-    if (!is.null(monoList$monoAte)) {
+    if (!is.null(monoList$monoAte.dec)) {
         if (!audit) {
             monoA <- rbind(monoA, monoList$monoAte.dec)
             monoList$monoAte.dec <- NULL
@@ -1298,7 +1297,6 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
                 map <- c(map, monoList$monomapte.dec[violatePos])
                 umap <- c(umap, monoList$umapte.dec[violatePos, 2])
                 monoAteDecSeq <- seq(sum(violatePos))
-                monoA$mte.dec.rhs <- monoList$monotez[violatePos]
             }
             rm(mte.type)
             monoList$monoAte.dec <- NULL

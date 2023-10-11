@@ -1864,7 +1864,21 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
         }
     }
     ## Clean up status codes
-    if (!cho.russell) {
+    if (cho.russell) {
+        ## Combine the results if Cho and Russell approach used
+        status.codes <- list(criterion = c(minobseq$status, minobseq$status),
+                             min = c(result1$minstatus, result2$minstatus),
+                             max = c(result1$maxstatus, result2$maxstatus))
+        result1[['minstatus']] <- statusString(result1[['minstatus']], solver)
+        result1[['maxstatus']] <- statusString(result1[['maxstatus']], solver)
+        result2[['minstatus']] <- statusString(result2[['minstatus']], solver)
+        result2[['maxstatus']] <- statusString(result2[['maxstatus']], solver)
+        runtime <- rbind(c(minobseq$runtime, minobseq$runtime),
+                         c(result1$minruntime, result2$minruntime),
+                         c(result1$maxruntime, result2$maxruntime))
+        colnames(runtime) <- c("+per", "-per")
+        rownames(runtime) <- c("criterion", "min", "max")
+    } else {
         status.codes <- list(criterion = minobseq$status,
                              min = result$minstatus,
                              max = result$maxstatus)
@@ -1873,20 +1887,6 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
         runtime <- c(criterion = minobseq$runtime,
                      min = result$minruntime,
                      max = result$maxruntime)
-    } else {
-        status.codes <- list(criterion = c(minobseq$status, minobseq$status),
-                             min = c(result1$minstatus, result2$minstatus),
-                             max = c(result1$maxstatus, result2$maxstatus))
-        result1[['minstatus']] <- statusString(result1[['minstatus']], solver)
-        result1[['maxstatus']] <- statusString(result1[['maxstatus']], solver)
-        result2[['minstatus']] <- statusString(result2[['minstatus']], solver)
-        result2[['maxstatus']] <- statusString(result2[['maxstatus']], solver)
-        ## Combine the results
-        runtime <- rbind(c(minobseq$runtime, minobseq$runtime),
-                         c(result1$minruntime, result2$minruntime),
-                         c(result1$maxruntime, result2$maxruntime))
-        colnames(runtime) <- c("+per", "-per")
-        rownames(runtime) <- c("criterion", "min", "max")
     }
     minobseq$status <- statusString(minobseq$status, solver)
     ## Return output
