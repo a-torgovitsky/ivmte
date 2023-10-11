@@ -22,13 +22,13 @@
 #' @return a list containing the grid used in the audit; a vector
 #'     mapping the elements in the support of the covariates to
 #'
-gengrid.alt <- function(index, xsupport, usupport, uname,
-                        cho.russell = FALSE, cr.epsilon = 1e-3,
-                        m0.lb, m0.ub, m1.lb, m1.ub,
-                        mte.lb, mte.ub,
-                        m0.dec = FALSE, m0.inc = FALSE,
-                        m1.dec = FALSE, m1.inc = FALSE,
-                        mte.dec = FALSE, mte.inc = FALSE) {
+gengrid <- function(index, xsupport, usupport, uname,
+                    cho.russell = FALSE, cr.epsilon = 1e-3,
+                    m0.lb, m0.ub, m1.lb, m1.ub,
+                    mte.lb, mte.ub,
+                    m0.dec = FALSE, m0.inc = FALSE,
+                    m1.dec = FALSE, m1.inc = FALSE,
+                    mte.dec = FALSE, mte.inc = FALSE) {
     ## Generate baseline grids
     if (!cho.russell) {
         if (length(index) > 0) {
@@ -63,148 +63,101 @@ gengrid.alt <- function(index, xsupport, usupport, uname,
         return(list(grid = grid,
                     map = map))
     } else {
-        ## Generate perturbations for Cho and Russell
-        if (cho.russell) {
-            ## Generate output list
-            key <- list()
-            ## Generate baseline grid
-            key <- list()
+        ## Generate baseline grid
+        key <- list()
+        if (!is.null(xsupport)) {
             key$grid <- data.frame(.x.grid = rep(x = seq(nrow(xsupport)),
                                                  each = length(usupport)),
-                                   ## .u.grid = rep(x = seq(length(usupport)),
-                                   ##               times = nrow(xsupport)),
                                    .u.value = rep(x = usupport,
-                                                  times = length(xsupport)))
-            key$grid$.cr.pos <- seq(1, nrow(key$grid))
-            ## Address lower bounds
-            if (hasArg(m0.lb)) {
-                tmp.pert <- runif(n = nrow(key$grid),
-                                  min = min(0, cr.epsilon),
-                                  max = max(0, cr.epsilon))
-                key$m0.lb <- m0.lb - tmp.pert
-            }
-            if (hasArg(m1.lb)) {
-                tmp.pert <- runif(n = nrow(key$grid),
-                                  min = min(0, cr.epsilon),
-                                  max = max(0, cr.epsilon))
-                key$m1.lb <- m1.lb - tmp.pert
-            }
-            if (hasArg(mte.lb)) {
-                tmp.pert <- runif(n = nrow(key$grid),
-                                  min = min(0, cr.epsilon),
-                                  max = max(0, cr.epsilon))
-                key$mte.lb <- mte.lb - tmp.pert
-            }
-            ## Address upper bounds
-            if (hasArg(m0.ub)) {
-                tmp.pert <- runif(n = nrow(key$grid),
-                                  min = min(0, cr.epsilon),
-                                  max = max(0, cr.epsilon))
-                key$m0.ub <- m0.ub + tmp.pert
-            }
-            if (hasArg(m1.ub)) {
-                tmp.pert <- runif(n = nrow(key$grid),
-                                  min = min(0, cr.epsilon),
-                                  max = max(0, cr.epsilon))
-                key$m1.ub <- m1.ub + tmp.pert
-            }
-            if (hasArg(mte.ub)) {
-                tmp.pert <- runif(n = nrow(key$grid),
-                                  min = min(0, cr.epsilon),
-                                  max = max(0, cr.epsilon))
-                key$mte.ub <- mte.ub + tmp.pert
-            }
-            ## Address m0 monotonicity
-            if (m0.dec) {
-                tmp.pert <- runif(n = nrow(key$grid),
-                                  min = min(0, cr.epsilon),
-                                  max = max(0, cr.epsilon))
-                key$m0.dec <- tmp.pert
-            }
-            if (m0.inc) {
-                tmp.pert <- runif(n = nrow(key$grid),
-                                  min = min(0, cr.epsilon),
-                                  max = max(0, cr.epsilon))
-                key$m0.inc <- -tmp.pert
-            }
-            ## Address m1 monotonicity
-            if (m1.dec) {
-                tmp.pert <- runif(n = nrow(key$grid),
-                                  min = min(0, cr.epsilon),
-                                  max = max(0, cr.epsilon))
-                key$m1.dec <- tmp.pert
-            }
-            if (m1.inc) {
-                tmp.pert <- runif(n = nrow(key$grid),
-                                  min = min(0, cr.epsilon),
-                                  max = max(0, cr.epsilon))
-                key$m1.inc <- -tmp.pert
-            }
-            ## Address MTE monotonicity
-            if (mte.dec) {
-                tmp.pert <- runif(n = nrow(key$grid),
-                                  min = min(0, cr.epsilon),
-                                  max = max(0, cr.epsilon))
-                key$mte.dec <- tmp.pert
-            }
-            if (mte.inc) {
-                tmp.pert <- runif(n = nrow(key$grid),
-                                  min = min(0, cr.epsilon),
-                                  max = max(0, cr.epsilon))
-                key$mte.inc <- -tmp.pert
-            }
-            ## NOTE: You need to account for cases where m0/m1/mte are
-            ## constants. You need to make sure your constraints uses the
-            ## same shocks, otherwise you could have infeasibility.
-            return(key)
+                                                  times = nrow(xsupport)))
+        } else {
+            key$grid <- data.frame(.x.grid = rep(x = 0,
+                                                 each = length(usupport)),
+                                   .u.value = usupport)
         }
+        key$grid$.cr.pos <- seq(1, nrow(key$grid))
+        ## Address lower bounds
+        if (hasArg(m0.lb)) {
+            tmp.pert <- runif(n = nrow(key$grid),
+                              min = min(0, cr.epsilon),
+                              max = max(0, cr.epsilon))
+            key$m0.lb <- m0.lb - tmp.pert
+        }
+        if (hasArg(m1.lb)) {
+            tmp.pert <- runif(n = nrow(key$grid),
+                              min = min(0, cr.epsilon),
+                              max = max(0, cr.epsilon))
+            key$m1.lb <- m1.lb - tmp.pert
+        }
+        if (hasArg(mte.lb)) {
+            tmp.pert <- runif(n = nrow(key$grid),
+                              min = min(0, cr.epsilon),
+                              max = max(0, cr.epsilon))
+            key$mte.lb <- mte.lb - tmp.pert
+        }
+        ## Address upper bounds
+        if (hasArg(m0.ub)) {
+            tmp.pert <- runif(n = nrow(key$grid),
+                              min = min(0, cr.epsilon),
+                              max = max(0, cr.epsilon))
+            key$m0.ub <- m0.ub + tmp.pert
+        }
+        if (hasArg(m1.ub)) {
+            tmp.pert <- runif(n = nrow(key$grid),
+                              min = min(0, cr.epsilon),
+                              max = max(0, cr.epsilon))
+            key$m1.ub <- m1.ub + tmp.pert
+        }
+        if (hasArg(mte.ub)) {
+            tmp.pert <- runif(n = nrow(key$grid),
+                              min = min(0, cr.epsilon),
+                              max = max(0, cr.epsilon))
+            key$mte.ub <- mte.ub + tmp.pert
+        }
+        ## Address m0 monotonicity
+        if (m0.dec) {
+            tmp.pert <- runif(n = nrow(key$grid),
+                              min = min(0, cr.epsilon),
+                              max = max(0, cr.epsilon))
+            key$m0.dec <- tmp.pert
+        }
+        if (m0.inc) {
+            tmp.pert <- runif(n = nrow(key$grid),
+                              min = min(0, cr.epsilon),
+                              max = max(0, cr.epsilon))
+            key$m0.inc <- -tmp.pert
+        }
+        ## Address m1 monotonicity
+        if (m1.dec) {
+            tmp.pert <- runif(n = nrow(key$grid),
+                              min = min(0, cr.epsilon),
+                              max = max(0, cr.epsilon))
+            key$m1.dec <- tmp.pert
+        }
+        if (m1.inc) {
+            tmp.pert <- runif(n = nrow(key$grid),
+                              min = min(0, cr.epsilon),
+                              max = max(0, cr.epsilon))
+            key$m1.inc <- -tmp.pert
+        }
+        ## Address MTE monotonicity
+        if (mte.dec) {
+            tmp.pert <- runif(n = nrow(key$grid),
+                              min = min(0, cr.epsilon),
+                              max = max(0, cr.epsilon))
+            key$mte.dec <- tmp.pert
+        }
+        if (mte.inc) {
+            tmp.pert <- runif(n = nrow(key$grid),
+                              min = min(0, cr.epsilon),
+                              max = max(0, cr.epsilon))
+            key$mte.inc <- -tmp.pert
+        }
+        ## NOTE: You need to account for cases where m0/m1/mte are
+        ## constants. You need to make sure your constraints uses the
+        ## same shocks, otherwise you could have infeasibility.
+        return(key)
     }
-}
-
-
-#' Generating the grid for the audit procedure
-#'
-#' This function takes in a matrix summarizing the support of the
-#' covariates, as well as set of points summarizing the support of the
-#' unobservable variable. A Cartesian product of the subset of the
-#' support of the covariates and the points in the support of the
-#' unobservable generates the grid that is used for the audit
-#' procedure.
-#'
-#' @param index a vector whose elements indicate the rows in the
-#'     matrix \code{xsupport} to include in the grid.
-#' @param xsupport a matrix containing all the unique combinations of
-#'     the covariates included in the MTRs.
-#' @param usupport a vector of points in the interval [0, 1],
-#'     including 0 and 1. The number of points is decided by the
-#'     user. The function generates these points using a Halton
-#'     sequence.
-#' @param uname name declared by user to represent the unobservable
-#'     term.
-#' @return a list containing the grid used in the audit; a vector
-#'     mapping the elements in the support of the covariates to
-#'     \code{index}.
-gengrid <- function(index, xsupport, usupport, uname) {
-    if (length(usupport) == 0) usupport <- 0
-    subsupport <- xsupport[index, ]
-    if (is.null(dim(subsupport))) {
-        subsupport <- data.frame(subsupport)
-        colnames(subsupport) <- colnames(xsupport)
-    }
-    subsupport$.grid.index <- index
-    ## generate a record for which rows correspond to which
-    ## index---this will be useful for the audit.
-    supportrep <- subsupport[rep(seq(1, nrow(subsupport)),
-                                 each = length(usupport)), ]
-    uvecrep <- rep(usupport, times = length(index))
-    grid <- cbind(supportrep, uvecrep, seq(1, length(uvecrep)))
-    rownames(grid) <- grid$.grid.order
-    map <- grid$.grid.index
-    grid$.grid.index <- NULL
-    grid$.u.index <- rep(seq(1, length(usupport)), times = nrow(subsupport))
-    colnames(grid) <- c(colnames(xsupport), uname, ".grid.order", ".u.order")
-    return(list(grid = grid,
-                map = map))
 }
 
 #' Generating the constraint matrix
@@ -1609,10 +1562,10 @@ genmonoboundA <- function(pm0, pm1, support, grid_index, uvec,
        fullU0mat, fullU1mat,
        u0unique, u1unique)
     ## Generate the first iteration of the grid
-    gridobj <- gengrid.alt(index = grid_index,
-                           xsupport = support,
-                           usupport = uvec,
-                           uname = uname)
+    gridobj <- gengrid(index = grid_index,
+                       xsupport = support,
+                       usupport = uvec,
+                       uname = uname)
     if (is.null(splines[[1]]) && is.null(splines[[2]])) {
         A0 <- design(formula = m0, data = gridobj$grid)$X
         A1 <- design(formula = m1, data = gridobj$grid)$X

@@ -3094,10 +3094,15 @@ ivmte <- function(data, target, late.from, late.to, late.X,
                     tmp.propEstimates <-
                         data.frame(var = names(bootEstimate$propensity.coef),
                                    y = bootEstimate$propensity.coef)
-                    colnames(tmp.propEstimates)[2] <- paste0('b', b)
+                    if (nrow(tmp.propEstimates) > 0) {
+                        colnames(tmp.propEstimates)[2] <- paste0('b', b)
+                    } else {
+                        tmp.propEstimates <- NULL
+                    }
                     if (is.null(propEstimates)) {
                         propEstimates <- tmp.propEstimates
                     } else {
+                        colnames(tmp.propEstimates)[2] <- paste0('b', b)
                         propEstimates <- merge(propEstimates,
                                                tmp.propEstimates,
                                                by = "var",

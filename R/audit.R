@@ -628,23 +628,23 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
         if (cho.russell) {
             cr.env <- new.env()
             if (!hasArg(cr.perturbations)) {
-                cr.env$grid <- gengrid.alt(xsupport = support,
-                                           usupport = a_uvec,
-                                           uname = uname,
-                                           cho.russell = TRUE,
-                                           cr.epsilon = cr.epsilon,
-                                           m0.lb = m0.lb,
-                                           m0.ub = m0.ub,
-                                           m1.lb = m1.lb,
-                                           m1.ub = m1.ub,
-                                           mte.lb = mte.lb,
-                                           mte.ub = mte.ub,
-                                           m0.inc = m0.inc,
-                                           m0.dec = m0.dec,
-                                           m1.inc = m1.inc,
-                                           m1.dec = m1.dec,
-                                           mte.inc = mte.inc,
-                                           mte.dec = mte.dec)
+                cr.env$grid <- gengrid(xsupport = support,
+                                       usupport = a_uvec,
+                                       uname = uname,
+                                       cho.russell = TRUE,
+                                       cr.epsilon = cr.epsilon,
+                                       m0.lb = m0.lb,
+                                       m0.ub = m0.ub,
+                                       m1.lb = m1.lb,
+                                       m1.ub = m1.ub,
+                                       mte.lb = mte.lb,
+                                       mte.ub = mte.ub,
+                                       m0.inc = m0.inc,
+                                       m0.dec = m0.dec,
+                                       m1.inc = m1.inc,
+                                       m1.dec = m1.dec,
+                                       mte.inc = mte.inc,
+                                       mte.dec = mte.dec)
             } else {
                 cr.env$grid <- cr.perturbations
             }
@@ -848,7 +848,7 @@ audit <- function(data, uname, m0, m1, pm0, pm1, splinesobj,
                 if (x %in% modelEnv$mbobj$lbteseq) {
                     if (mte.lb.default == TRUE) {
                         return(paste0("mte.lb = ", round(mte.lb, 6),
-                                      " (min. treatment effect 6by default)"))
+                                      " (min. treatment effect by default)"))
                     } else {
                         return(paste0("mte.lb = ", round(mte.lb, 6)))
                     }
