@@ -1218,7 +1218,6 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
                 umap <- c(umap, monoList$umapte.inc[violatePos, 2])
                 monoAteIncSeq <- seq(sum(violatePos))
             }
-            rm(mte.type)
             monoList$monoAte.inc <- NULL
             monoList$monomapte.inc <- NULL
             monoList$umapte.inc <- NULL
@@ -1251,7 +1250,6 @@ genmonoA <- function(A0, A1, sset, uname, gridobj, gstar0, gstar1,
                 umap <- c(umap, monoList$umapte.dec[violatePos, 2])
                 monoAteDecSeq <- seq(sum(violatePos))
             }
-            rm(mte.type)
             monoList$monoAte.dec <- NULL
             monoList$monomapte.dec <- NULL
             monoList$umapte.dec <- NULL
