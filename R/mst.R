@@ -2143,14 +2143,16 @@ ivmte <- function(data, target, late.from, late.to, late.X,
         ## formula, if a propensity score formula is provided
         if (hasArg(target) && target %in% c("late", "avglate", "genlate") &&
             length(Formula::as.Formula(propensity))[1] != 0) {
-            if (!all(late.Z %in% vars_propensity)) {
-                stop(gsub("\\s+", " ",
-                          "Variables in 'late.Z' argument must be contained
+            if (hasArg(late.Z)) {
+                if (!all(late.Z %in% vars_propensity)) {
+                    stop(gsub("\\s+", " ",
+                              "Variables in 'late.Z' argument must be contained
                        in the propensity score model."),
-                     call. = FALSE)
+                       call. = FALSE)
+                }
             }
-            nLateX <- 0
             if (hasArg(late.X)) {
+                nLateX <- 0
                 nLateX <- length(late.X)
                 if (!all(late.X %in% vars_propensity)) {
                     stop(gsub("\\s+", " ",
@@ -4132,7 +4134,8 @@ ivmteEstimate <- function(data, target, late.Z, late.from, late.to,
                                       regression. Shape constraints are
                                       ignored."),
                                 call. = FALSE)
-                    } else {
+                    }
+                    if (!hasArg(point)) {
                         warning(gsub("\\s+", " ",
                                      "MTR is point identified via linear
                                       regression."),

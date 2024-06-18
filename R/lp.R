@@ -1054,7 +1054,7 @@ bound <- function(env, sset, g0, g1, soft = FALSE,
             if (solver == "gurobi") {
                 env$model$modelsense <- "min"
                 minresult <- runGurobi(env$model, solver.options)
-            } else {
+            } else if (solver == "rmosek") {
                 env$model$problem <- "bounds"
                 minresult <- runMosek(env$model, 'min', solver.options, debug)
                 env$model$problem <- NULL
@@ -1073,7 +1073,7 @@ bound <- function(env, sset, g0, g1, soft = FALSE,
             if (solver == "gurobi") {
                 env$model$modelsense <- "max"
                 maxresult <- runGurobi(env$model, solver.options)
-            } else {
+            } else if (solver == "rmosek") {
                 maxresult <- runMosek(env$model, 'max', solver.options)
             }
             max.t1 <- Sys.time()
@@ -1138,7 +1138,7 @@ bound <- function(env, sset, g0, g1, soft = FALSE,
             if (solver == "gurobi") {
                 env$model$modelsense <- "min"
                 minresult <- runGurobi(env$model, solver.options)
-            } else {
+            } else if (solver == "rmosek") {
                 env$model$problem <- "bounds"
                 minresult <- runMosek(env$model, 'min', solver.options, debug)
                 env$model$problem <- NULL
@@ -1223,7 +1223,7 @@ bound <- function(env, sset, g0, g1, soft = FALSE,
             if (solver == "gurobi") {
                 env$model$modelsense <- "max"
                 maxresult <- runGurobi(env$model, solver.options)
-            } else {
+            } else if (solver == "rmosek") {
                 maxresult <- runMosek(env$model, 'max', solver.options)
             }
             max.t1 <- Sys.time()
@@ -1347,6 +1347,7 @@ bound <- function(env, sset, g0, g1, soft = FALSE,
         names(ming0) <- names(maxg0) <- names(sset$s1$g0)
         names(ming1) <- names(maxg1) <- names(sset$s1$g1)
     }
+    names(env$model$obj) <- colnames(env$model$A)
     ## Return output
     output <- list(max = max,
                    maxg0 = maxg0,
